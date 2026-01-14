@@ -4,7 +4,7 @@ import { useDroppable } from "@dnd-kit/core"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Folder, MoreVertical, Trash2 } from "lucide-react"
+import { Folder, Trash2, Wifi, Loader2 } from "lucide-react"
 import type { Group, ProxyNode } from "@/lib/types"
 import { NodeCard } from "@/components/nodes/NodeCard"
 
@@ -13,13 +13,30 @@ interface GroupCardProps {
   nodes: ProxyNode[]
   onDeleteGroup?: (id: string) => void
   onDeleteNode?: (id: string) => void
+  onTestNodes?: (ids: string[]) => void
+  connections?: Record<string, { connected: boolean; port: number }>
+  testingNodes?: Set<string>
 }
 
-export function GroupCard({ group, nodes, onDeleteGroup, onDeleteNode }: GroupCardProps) {
+export function GroupCard({
+  group,
+  nodes,
+  onDeleteGroup,
+  onDeleteNode,
+  onTestNodes,
+  connections = {},
+  testingNodes = new Set(),
+}: GroupCardProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: `group-${group.id}`,
     data: { group },
   })
+
+  const handleGroupTest = () => {
+    if (onTestNodes && nodes.length > 0) {
+      onTestNodes(nodes.map((n) => n.id))
+    }
+  }
 
   return (
     <div
@@ -40,6 +57,21 @@ export function GroupCard({ group, nodes, onDeleteGroup, onDeleteNode }: GroupCa
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="outline">{nodes.length} 节点</Badge>
+          {onTestNodes && nodes.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleGroupTest}
+              disabled={testingNodes.size > 0}
+            >
+              {testingNodes.size > 0 ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Wifi className="h-4 w-4 mr-1" />
+              )}
+              测试
+            </Button>
+          )}
           {onDeleteGroup && (
             <Button
               variant="ghost"
@@ -61,7 +93,15 @@ export function GroupCard({ group, nodes, onDeleteGroup, onDeleteNode }: GroupCa
           </div>
         ) : (
           nodes.map((node) => (
-            <NodeCard key={node.id} node={node} onDelete={onDeleteNode} />
+            <NodeCard
+              key={node.id}
+              node={node}
+              onDelete={onDeleteNode}
+              connected={connections[node.id]?.connected}
+              testPort={connections[node.id]?.port}
+              isTesting={testingNodes.has(node.id)}
+              onTest={onTestNodes ? (id) => onTestNodes([id]) : undefined}
+            />
           ))
         )}
       </div>

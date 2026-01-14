@@ -1,22 +1,46 @@
 "use client"
 
 import { useDroppable } from "@dnd-kit/core"
+import { useCallback, useState } from "react"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
-import { Inbox } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Inbox, Wifi, Loader2 } from "lucide-react"
 import type { ProxyNode } from "@/lib/types"
 import { NodeCard } from "./NodeCard"
 
 interface NodePoolProps {
   nodes: ProxyNode[]
   onDeleteNode?: (id: string) => void
+  onTestNodes?: (ids: string[]) => void
+  connections?: Record<string, { connected: boolean; port: number }>
+  testingNodes?: Set<string>
 }
 
-export function NodePool({ nodes, onDeleteNode }: NodePoolProps) {
+export function NodePool({
+  nodes,
+  onDeleteNode,
+  onTestNodes,
+  connections = {},
+  testingNodes = new Set(),
+}: NodePoolProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: "node-pool",
     data: { isPool: true },
   })
+
+  const [isBatchTesting, setIsBatchTesting] = useState(false)
+
+  const handleBatchTest = useCallback(async () => {
+    if (!onTestNodes || nodes.length === 0) return
+
+    setIsBatchTesting(true)
+    try {
+      await onTestNodes(nodes.map((n) => n.id))
+    } finally {
+      setIsBatchTesting(false)
+    }
+  }, [nodes, onTestNodes])
 
   return (
     <div
@@ -35,7 +59,24 @@ export function NodePool({ nodes, onDeleteNode }: NodePoolProps) {
             <p className="text-xs text-muted-foreground">未分组的节点</p>
           </div>
         </div>
-        <Badge variant="outline">{nodes.length} 节点</Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="outline">{nodes.length} 节点</Badge>
+          {onTestNodes && nodes.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBatchTest}
+              disabled={isBatchTesting || testingNodes.size > 0}
+            >
+              {isBatchTesting || testingNodes.size > 0 ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Wifi className="h-4 w-4 mr-1" />
+              )}
+              测试连通
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Nodes Grid */}
@@ -49,7 +90,15 @@ export function NodePool({ nodes, onDeleteNode }: NodePoolProps) {
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {nodes.map((node) => (
-              <NodeCard key={node.id} node={node} onDelete={onDeleteNode} />
+              <NodeCard
+                key={node.id}
+                node={node}
+                onDelete={onDeleteNode}
+                connected={connections[node.id]?.connected}
+                testPort={connections[node.id]?.port}
+                isTesting={testingNodes.has(node.id)}
+                onTest={onTestNodes ? (id) => onTestNodes([id]) : undefined}
+              />
             ))}
           </div>
         )}

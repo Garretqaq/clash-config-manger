@@ -1,5 +1,26 @@
 export type ProxyType = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'socks5' | 'http' | 'hysteria' | 'hysteria2'
 
+export type ConnectionStatus = 'connected' | 'disconnected' | 'testing'
+
+export interface NodeConnection {
+  nodeId: string
+  connected: boolean
+  port?: number
+  timestamp?: Date
+}
+
+export const CONNECTION_STATUS_COLORS: Record<ConnectionStatus, string> = {
+  connected: 'text-green-500',
+  disconnected: 'text-red-500',
+  testing: 'text-yellow-500',
+}
+
+export const CONNECTION_STATUS_BG_COLORS: Record<ConnectionStatus, string> = {
+  connected: 'bg-green-500/20',
+  disconnected: 'bg-red-500/20',
+  testing: 'bg-yellow-500/20',
+}
+
 export interface ProxyNode {
   id: string
   name: string

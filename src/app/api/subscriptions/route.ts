@@ -30,18 +30,19 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, url } = body
+    const { name, url, yamlContent } = body
 
     // 创建订阅
     const subscription = await prisma.subscription.create({
       data: {
         name,
-        url,
+        url: url || '',
+        yamlContent: yamlContent || null,
       },
     })
 
     // 自动创建对应的分组
-    await prisma.group.create({
+    const group = await prisma.group.create({
       data: {
         name: `${name} - 默认`,
         type: 'select',
@@ -49,7 +50,30 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(subscription, { status: 201 })
+    // 如果有 yamlContent，直接解析导入节点
+    if (yamlContent) {
+      const config = ClashParser.parseContent(yamlContent)
+      const proxies = ClashParser.extractProxies(config)
+      const validatedProxies = proxies.filter(ClashParser.validateProxy)
+      const normalizedProxies = validatedProxies.map(ClashParser.normalizeProxy)
+
+      await prisma.proxyNode.createMany({
+        data: normalizedProxies.map((proxy) => ({
+          name: proxy.name,
+          type: proxy.type,
+          server: proxy.server,
+          port: Number(proxy.port),
+          config: proxy.config as object,
+          subscriptionId: subscription.id,
+          groupId: group.id,
+        })),
+      })
+    }
+
+    return NextResponse.json({
+      ...subscription,
+      nodeCount: yamlContent ? await prisma.proxyNode.count({ where: { subscriptionId: subscription.id } }) : 0,
+    }, { status: 201 })
   } catch (error) {
     console.error('创建订阅失败:', error)
     return NextResponse.json({ error: '创建订阅失败' }, { status: 500 })

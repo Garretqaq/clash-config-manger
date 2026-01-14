@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { showToast } from "@/components/ui/toast"
-import { FolderPlus, Plus, ChevronDown, ChevronRight, Eye, Code } from "lucide-react"
+import { FolderPlus, Plus, ChevronDown, ChevronRight, Eye, Code, Wifi, Loader2 } from "lucide-react"
 import type { ProxyNode, Group, ProxyType } from "@/lib/types"
 
 const NODE_TYPES: { value: ProxyType; label: string }[] = [
@@ -128,6 +128,8 @@ export default function NodesPage() {
     params: {},
   })
   const [loading, setLoading] = useState(true)
+  const [connections, setConnections] = useState<Record<string, { connected: boolean; port: number }>>({})
+  const [testingNodes, setTestingNodes] = useState<Set<string>>(new Set())
   const { confirm } = useConfirmDialog()
 
   const fetchData = useCallback(async () => {
@@ -325,6 +327,55 @@ export default function NodesPage() {
     }
   }
 
+  const handleTestNodes = useCallback(async (nodeIds: string[]) => {
+    setTestingNodes((prev) => new Set([...prev, ...nodeIds]))
+
+    try {
+      const res = await fetch("/api/nodes/test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nodeIds,
+          options: { concurrency: 5, timeout: 3000 },
+        }),
+      })
+
+      if (!res.ok) throw new Error("测试失败")
+
+      const data = await res.json()
+
+      // 更新连通性数据
+      setConnections((prev) => {
+        const updated = { ...prev }
+        data.results.forEach((result: { nodeId: string; connected: boolean; port: number }) => {
+          updated[result.nodeId] = {
+            connected: result.connected,
+            port: result.port,
+          }
+        })
+        return updated
+      })
+
+      // 统计结果
+      const successCount = data.results.filter((r: { connected: boolean }) => r.connected).length
+      const totalCount = data.results.length
+      showToast({
+        title: "测试完成",
+        description: `${successCount}/${totalCount} 个节点连通`,
+        variant: successCount === totalCount ? "success" : "default",
+      })
+    } catch (error) {
+      console.error("测试失败:", error)
+      showToast({ title: "测试失败", variant: "destructive" })
+    } finally {
+      setTestingNodes((prev) => {
+        const next = new Set(prev)
+        nodeIds.forEach((id) => next.delete(id))
+        return next
+      })
+    }
+  }, [])
+
   const updateParam = (key: string, value: string) => {
     setNewNode((prev) => ({
       ...prev,
@@ -361,11 +412,31 @@ export default function NodesPage() {
             <FolderPlus className="h-4 w-4 mr-2" />
             新建分组
           </Button>
+          {nodes.length > 0 && (
+            <Button
+              variant="secondary"
+              onClick={() => handleTestNodes(nodes.map((n) => n.id))}
+              disabled={testingNodes.size > 0}
+            >
+              {testingNodes.size > 0 ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Wifi className="h-4 w-4 mr-2" />
+              )}
+              测试连通
+            </Button>
+          )}
         </div>
       </PageHeader>
 
       <div className="space-y-6">
-        <NodePool nodes={poolNodes} onDeleteNode={handleDeleteNode} />
+        <NodePool
+          nodes={poolNodes}
+          onDeleteNode={handleDeleteNode}
+          onTestNodes={handleTestNodes}
+          connections={connections}
+          testingNodes={testingNodes}
+        />
 
         <div className="grid gap-6 md:grid-cols-2">
           {groups.map((group) => (
@@ -375,6 +446,9 @@ export default function NodesPage() {
               nodes={getGroupNodes(group.id)}
               onDeleteGroup={handleDeleteGroup}
               onDeleteNode={handleDeleteNode}
+              onTestNodes={handleTestNodes}
+              connections={connections}
+              testingNodes={testingNodes}
             />
           ))}
         </div>

@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/dialog"
 import { showToast } from "@/components/ui/toast"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Plus,
   Rss,
@@ -25,6 +27,7 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  FileText,
 } from "lucide-react"
 import type { Subscription } from "@/lib/types"
 
@@ -44,7 +47,9 @@ export default function SubscriptionsPage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState<string | null>(null)
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [addTab, setAddTab] = useState("url")
   const [newSub, setNewSub] = useState({ name: "", url: "" })
+  const [yamlContent, setYamlContent] = useState("")
   const [expandedSubs, setExpandedSubs] = useState<Set<string>>(new Set())
   const { confirm } = useConfirmDialog()
 
@@ -78,16 +83,33 @@ export default function SubscriptionsPage() {
   }
 
   const handleAdd = async () => {
-    if (!newSub.name.trim() || !newSub.url.trim()) {
-      showToast({ title: "请填写完整信息", variant: "destructive" })
+    if (!newSub.name.trim()) {
+      showToast({ title: "请填写订阅名称", variant: "destructive" })
+      return
+    }
+
+    if (addTab === "url" && !newSub.url.trim()) {
+      showToast({ title: "请填写订阅链接", variant: "destructive" })
+      return
+    }
+
+    if (addTab === "yaml" && !yamlContent.trim()) {
+      showToast({ title: "请粘贴 YAML 内容", variant: "destructive" })
       return
     }
 
     try {
+      const payload: { name: string; url?: string; yamlContent?: string } = { name: newSub.name }
+      if (addTab === "url") {
+        payload.url = newSub.url
+      } else {
+        payload.yamlContent = yamlContent
+      }
+
       const res = await fetch("/api/subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newSub),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
         showToast({ title: "添加订阅失败", variant: "destructive" })
@@ -96,11 +118,22 @@ export default function SubscriptionsPage() {
       const sub = await res.json()
       setSubscriptions((prev) => [sub, ...prev])
       setNewSub({ name: "", url: "" })
+      setYamlContent("")
       setIsAddOpen(false)
-      showToast({ title: "添加成功", description: sub.name, variant: "success" })
+      const desc = sub.nodeCount ? `导入 ${sub.nodeCount} 个节点` : sub.name
+      showToast({ title: "添加成功", description: desc, variant: "success" })
     } catch (error) {
       console.error("添加订阅失败:", error)
       showToast({ title: "添加订阅失败", variant: "destructive" })
+    }
+  }
+
+  const handleAddOpenChange = (open: boolean) => {
+    setIsAddOpen(open)
+    if (!open) {
+      setAddTab("url")
+      setNewSub({ name: "", url: "" })
+      setYamlContent("")
     }
   }
 
@@ -240,20 +273,22 @@ export default function SubscriptionsPage() {
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => handleSync(sub.id)}
-                    disabled={syncing === sub.id}
-                  >
-                    {syncing === sub.id ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                    )}
-                    同步
-                  </Button>
+                  {!sub.yamlContent && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => handleSync(sub.id)}
+                      disabled={syncing === sub.id}
+                    >
+                      {syncing === sub.id ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <RefreshCw className="h-4 w-4 mr-2" />
+                      )}
+                      同步
+                    </Button>
+                  )}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -270,8 +305,8 @@ export default function SubscriptionsPage() {
       )}
 
       {/* 添加订阅对话框 */}
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
+      <Dialog open={isAddOpen} onOpenChange={handleAddOpenChange}>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>添加订阅</DialogTitle>
           </DialogHeader>
@@ -284,20 +319,53 @@ export default function SubscriptionsPage() {
                 onChange={(e) => setNewSub((prev) => ({ ...prev, name: e.target.value }))}
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">订阅链接</label>
-              <Input
-                placeholder="https://..."
-                value={newSub.url}
-                onChange={(e) => setNewSub((prev) => ({ ...prev, url: e.target.value }))}
-              />
-            </div>
+
+            <Tabs value={addTab} onValueChange={setAddTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="url" className="flex items-center gap-2">
+                  <Rss className="h-4 w-4" />
+                  远程订阅
+                </TabsTrigger>
+                <TabsTrigger value="yaml" className="flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  YAML 导入
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="url" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">订阅链接</label>
+                  <Input
+                    placeholder="https://..."
+                    value={newSub.url}
+                    onChange={(e) => setNewSub((prev) => ({ ...prev, url: e.target.value }))}
+                  />
+                </div>
+              </TabsContent>
+
+              <TabsContent value="yaml" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">YAML 内容</label>
+                  <Textarea
+                    placeholder="mixed-port: 7890&#10;proxies:&#10;  - name: 节点1&#10;    type: trojan&#10;    ..."
+                    value={yamlContent}
+                    onChange={(e) => setYamlContent(e.target.value)}
+                    className="font-mono text-xs min-h-[200px]"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    直接粘贴 Clash 配置文件或节点 URL 列表
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleAdd}>添加</Button>
+            <Button onClick={handleAdd}>
+              {addTab === "yaml" ? "导入" : "添加"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

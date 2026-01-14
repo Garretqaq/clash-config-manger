@@ -53,6 +53,7 @@ model Subscription {
   id         String        @id @default(cuid())
   name       String
   url        String        @db.Text
+  yamlContent String?      @db.Text
   enabled    Boolean       @default(true)
   nodes      ProxyNode[]
   groups     Group[]
