@@ -9,7 +9,8 @@ import {
   FileCode2,
   Settings2,
   LayoutDashboard,
-  FileText
+  FileText,
+  Share2,
 } from "lucide-react"
 import { ThemeToggle } from "./ThemeToggle"
 
@@ -38,6 +39,11 @@ const menuItems = [
     title: "配置管理",
     href: "/generated-configs",
     icon: FileText,
+  },
+  {
+    title: "分享管理",
+    href: "/shares",
+    icon: Share2,
   },
 ]
 

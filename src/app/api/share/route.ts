@@ -12,14 +12,38 @@ function generateAccessToken(shareId: string, password: string): string {
     .digest('hex')
 }
 
-// GET /api/share - List all share links (optional, for admin use)
+// GET /api/share - List all share links with search and filter
 export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const q = searchParams.get('q') || ''
+    const status = searchParams.get('status') || 'all'
+
+    // Build where clause
+    const where: any = {}
+
+    // Search filter (configName or description)
+    if (q) {
+      where.OR = [
+        { configName: { contains: q } },
+        { description: { contains: q } },
+      ]
+    }
+
+    // Status filter
+    if (status === 'active') {
+      where.expiresAt = { gt: new Date() }
+    } else if (status === 'expired') {
+      where.expiresAt = { lte: new Date() }
+    }
+
     const shareLinks = await prisma.shareLink.findMany({
+      where,
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         shareId: true,
+        accessToken: true,
         configName: true,
         description: true,
         expiresAt: true,
@@ -28,7 +52,13 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(shareLinks)
+    // Add status field based on expiresAt
+    const linksWithStatus = shareLinks.map(link => ({
+      ...link,
+      status: link.expiresAt && new Date(link.expiresAt) < new Date() ? 'expired' : 'active',
+    }))
+
+    return NextResponse.json(linksWithStatus)
   } catch (error) {
     console.error('Failed to list share links:', error)
     return NextResponse.json({ error: '获取分享列表失败' }, { status: 500 })
@@ -142,5 +172,39 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Failed to delete share link:', error)
     return NextResponse.json({ error: '删除分享链接失败' }, { status: 500 })
+  }
+}
+
+// POST /api/share/batch-delete - Batch delete share links
+export async function batchDeleteShareLinks(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { shareIds } = body
+
+    if (!shareIds || !Array.isArray(shareIds) || shareIds.length === 0) {
+      return NextResponse.json({ error: '缺少分享 ID 列表' }, { status: 400 })
+    }
+
+    // Find share links by shareId
+    const shareLinks = await prisma.shareLink.findMany({
+      where: { shareId: { in: shareIds } },
+      select: { id: true },
+    })
+
+    const ids = shareLinks.map(link => link.id)
+
+    if (ids.length > 0) {
+      await prisma.shareLink.deleteMany({
+        where: { id: { in: ids } },
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      deleted: ids.length,
+    })
+  } catch (error) {
+    console.error('Failed to batch delete share links:', error)
+    return NextResponse.json({ error: '批量删除分享链接失败' }, { status: 500 })
   }
 }

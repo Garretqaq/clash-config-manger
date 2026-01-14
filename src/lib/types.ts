@@ -99,3 +99,14 @@ export interface ClashConfig {
   rules?: string[]
   [key: string]: unknown
 }
+
+export interface ShareLink {
+  id: string
+  shareId: string
+  configId?: string | null
+  configName: string
+  description?: string | null
+  expiresAt?: string | null
+  views: number
+  createdAt: string
+}
