@@ -273,22 +273,20 @@ export default function SubscriptionsPage() {
                 )}
 
                 <div className="flex gap-2 pt-2">
-                  {!sub.yamlContent && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleSync(sub.id)}
-                      disabled={syncing === sub.id}
-                    >
-                      {syncing === sub.id ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-4 w-4 mr-2" />
-                      )}
-                      同步
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => handleSync(sub.id)}
+                    disabled={syncing === sub.id}
+                  >
+                    {syncing === sub.id ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                    )}
+                    同步
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"

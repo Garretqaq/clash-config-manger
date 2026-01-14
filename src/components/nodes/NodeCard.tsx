@@ -5,6 +5,7 @@ import { CSS } from "@dnd-kit/utilities"
 import { cn } from "@/lib/utils"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   GripVertical,
   Server,
@@ -28,6 +29,9 @@ interface NodeCardProps {
   testPort?: number
   isTesting?: boolean
   onTest?: (id: string) => void
+  selectable?: boolean
+  selected?: boolean
+  onSelect?: (id: string, shiftKey: boolean) => void
 }
 
 const typeColors: Record<string, string> = {
@@ -47,6 +51,9 @@ export function NodeCard({
   testPort,
   isTesting = false,
   onTest,
+  selectable = false,
+  selected = false,
+  onSelect,
 }: NodeCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: node.id,
@@ -76,17 +83,34 @@ export function NodeCard({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-3 rounded-lg border bg-card p-3 transition-all cursor-pointer",
-        isDragging ? "opacity-50 shadow-lg ring-2 ring-primary" : "hover:bg-accent"
+        "flex items-center gap-3 rounded-lg border bg-card p-3 transition-all",
+        isDragging ? "opacity-50 shadow-lg ring-2 ring-primary" : "hover:bg-accent",
+        selectable && selected && "ring-2 ring-primary bg-primary/5"
       )}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-      >
-        <GripVertical className="h-4 w-4" />
-      </button>
+      {selectable && onSelect ? (
+        <div
+          className="relative"
+          onMouseDown={(e) => {
+            e.stopPropagation()
+            onSelect(node.id, e.shiftKey)
+          }}
+        >
+          <Checkbox
+            checked={selected}
+            readOnly
+            className="h-4 w-4 pointer-events-none"
+          />
+        </div>
+      ) : (
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
+      )}
 
       <Server className="h-4 w-4 text-muted-foreground" />
 

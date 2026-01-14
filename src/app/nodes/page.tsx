@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select"
 import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { showToast } from "@/components/ui/toast"
-import { FolderPlus, Plus, ChevronDown, ChevronRight, Eye, Code, Wifi, Loader2 } from "lucide-react"
+import { FolderPlus, Plus, ChevronDown, ChevronRight, Eye, Code, Wifi, Loader2, CheckSquare, Square } from "lucide-react"
 import type { ProxyNode, Group, ProxyType } from "@/lib/types"
 
 const NODE_TYPES: { value: ProxyType; label: string }[] = [
@@ -142,6 +142,8 @@ export default function NodesPage() {
   const [loading, setLoading] = useState(true)
   const [connections, setConnections] = useState<Record<string, { connected: boolean; port: number }>>({})
   const [testingNodes, setTestingNodes] = useState<Set<string>>(new Set())
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set())
   const { confirm } = useConfirmDialog()
 
   const fetchData = useCallback(async () => {
@@ -378,10 +380,19 @@ export default function NodesPage() {
 
       if (!res.ok) throw new Error("更新失败")
 
+      // 更新本地状态，包含所有字段（特别是 groupId）
       setNodes((prev) =>
         prev.map((n) =>
           n.id === editingNode.id
-            ? { ...n, name: editNode.name, type: editNode.type, server: editNode.server, port, config }
+            ? { 
+                ...n, 
+                name: editNode.name, 
+                type: editNode.type, 
+                server: editNode.server, 
+                port, 
+                config,
+                groupId: editNode.groupId || null  // 修复：同步更新 groupId
+              }
             : n
         )
       )
@@ -416,6 +427,33 @@ export default function NodesPage() {
   }
 
   const handleDeleteNode = async (id: string) => {
+    // 如果在选择模式下且选中了多个节点，执行批量删除
+    if (selectionMode && selectedNodes.size > 1) {
+      const idsToDelete = Array.from(selectedNodes)
+      const confirmed = await confirm({
+        title: "批量删除节点",
+        description: `确定要删除选中的 ${idsToDelete.length} 个节点吗？`,
+        variant: "destructive",
+      })
+      if (!confirmed) return
+
+      try {
+        await fetch("/api/nodes", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids: idsToDelete }),
+        })
+        setNodes((prev) => prev.filter((n) => !selectedNodes.has(n.id)))
+        setSelectedNodes(new Set())
+        showToast({ title: "已删除", description: `成功删除 ${idsToDelete.length} 个节点`, variant: "success" })
+      } catch (error) {
+        console.error("批量删除节点失败:", error)
+        showToast({ title: "删除失败", variant: "destructive" })
+      }
+      return
+    }
+
+    // 单个删除
     const confirmed = await confirm({
       title: "删除节点",
       description: "确定要删除这个节点吗？",
@@ -426,11 +464,25 @@ export default function NodesPage() {
     try {
       await fetch(`/api/nodes?ids=${id}`, { method: "DELETE" })
       setNodes((prev) => prev.filter((n) => n.id !== id))
+      setSelectedNodes((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
       showToast({ title: "已删除", variant: "success" })
     } catch (error) {
       console.error("删除节点失败:", error)
       showToast({ title: "删除失败", variant: "destructive" })
     }
+  }
+
+  const handleSelectionChange = (selected: Set<string>, _lastSelected: string | null) => {
+    setSelectedNodes(selected)
+  }
+
+  const toggleSelectionMode = () => {
+    setSelectionMode(!selectionMode)
+    setSelectedNodes(new Set())
   }
 
   const handleTestNodes = useCallback(async (nodeIds: string[]) => {
@@ -515,30 +567,45 @@ export default function NodesPage() {
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <PageHeader
         title="节点管理"
-        description="管理代理节点，拖拽节点到分组中"
+        description={selectionMode ? "选择节点进行批量操作" : "管理代理节点，拖拽节点到分组中"}
       >
         <div className="flex gap-2">
-          <Button onClick={() => setIsAddNodeOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            添加节点
-          </Button>
-          <Button variant="outline" onClick={() => setIsAddGroupOpen(true)}>
-            <FolderPlus className="h-4 w-4 mr-2" />
-            新建分组
-          </Button>
-          {nodes.length > 0 && (
-            <Button
-              variant="secondary"
-              onClick={() => handleTestNodes(nodes.map((n) => n.id))}
-              disabled={testingNodes.size > 0}
-            >
-              {testingNodes.size > 0 ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <Wifi className="h-4 w-4 mr-2" />
-              )}
-              测试连通
+          {selectionMode ? (
+            <Button variant="outline" onClick={toggleSelectionMode}>
+              <Square className="h-4 w-4 mr-2" />
+              取消选择
             </Button>
+          ) : (
+            <>
+              <Button onClick={() => setIsAddNodeOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                添加节点
+              </Button>
+              <Button variant="outline" onClick={() => setIsAddGroupOpen(true)}>
+                <FolderPlus className="h-4 w-4 mr-2" />
+                新建分组
+              </Button>
+              {nodes.length > 0 && (
+                <Button
+                  variant="secondary"
+                  onClick={() => handleTestNodes(nodes.map((n) => n.id))}
+                  disabled={testingNodes.size > 0}
+                >
+                  {testingNodes.size > 0 ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Wifi className="h-4 w-4 mr-2" />
+                  )}
+                  测试连通
+                </Button>
+              )}
+              {nodes.length > 0 && (
+                <Button variant="outline" onClick={toggleSelectionMode}>
+                  <CheckSquare className="h-4 w-4 mr-2" />
+                  选择
+                </Button>
+              )}
+            </>
           )}
         </div>
       </PageHeader>
@@ -551,6 +618,9 @@ export default function NodesPage() {
           onTestNodes={handleTestNodes}
           connections={connections}
           testingNodes={testingNodes}
+          selectionMode={selectionMode}
+          selectedNodes={selectedNodes}
+          onSelectionChange={handleSelectionChange}
         />
 
         <div className="grid gap-6 md:grid-cols-2">
@@ -565,6 +635,9 @@ export default function NodesPage() {
               onTestNodes={handleTestNodes}
               connections={connections}
               testingNodes={testingNodes}
+              selectionMode={selectionMode}
+              selectedNodes={selectedNodes}
+              onSelectionChange={handleSelectionChange}
             />
           ))}
         </div>

@@ -124,7 +124,64 @@ function NodePoolGroup({
   )
 }
 
-// 可排序的分组节点
+// 可放置的节点池（支持拖回节点）
+function DroppableNodePool({
+  poolGroupList,
+}: {
+  poolGroupList: { id: string; name: string; nodes: ProxyNode[] }[]
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: "config-node-pool",
+    data: { isPool: true },
+  })
+
+  return (
+    <Card 
+      ref={setNodeRef}
+      className={cn(
+        "h-fit max-h-[calc(100vh-200px)] transition-all",
+        isOver && "ring-2 ring-primary border-primary bg-primary/5"
+      )}
+    >
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base">
+          节点池
+          {isOver && <span className="text-xs text-primary ml-2">(松开以放回)</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <ScrollArea className="h-[calc(100vh-280px)] pr-4">
+          <div className="space-y-2">
+            {poolGroupList.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">
+                暂无可用节点
+              </p>
+            ) : (
+              poolGroupList.map((group, index) => (
+                <NodePoolGroup
+                  key={group.id}
+                  groupName={group.name}
+                  nodes={group.nodes}
+                  groupColor={
+                    group.id === "ungrouped"
+                      ? "border-l-muted"
+                      : index === 1
+                      ? "border-l-primary"
+                      : index === 2
+                      ? "border-l-blue-500"
+                      : "border-l-purple-500"
+                  }
+                />
+              ))
+            )}
+          </div>
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  )
+}
+
+// 可排序的分组节点（支持拖回节点池）
 function SortableGroupNode({
   node,
   groupName,
@@ -143,7 +200,7 @@ function SortableGroupNode({
     isDragging,
   } = useSortable({
     id: `sort-${groupName}-${node.id}`,
-    data: { node, groupName },
+    data: { node, groupName, fromGroup: true }, // 标记来自分组，支持拖回节点池
   })
 
   const style = {
@@ -361,8 +418,35 @@ export default function ConfigsPage() {
 
     if (!over) return
 
-    const activeData = active.data.current as { node?: ProxyNode; groupName?: string }
-    const overData = over.data.current as { node?: ProxyNode; groupName?: string }
+    const activeData = active.data.current as { 
+      node?: ProxyNode; 
+      groupName?: string; 
+      fromGroup?: boolean 
+    }
+    const overData = over.data.current as { 
+      node?: ProxyNode; 
+      groupName?: string; 
+      isPool?: boolean 
+    }
+
+    // 从分组拖回节点池
+    if (activeData?.fromGroup && activeData?.node && activeData?.groupName && overData?.isPool) {
+      const node = activeData.node
+      const fromGroup = activeData.groupName
+      
+      // 从分组中移除节点
+      setNodeMapping((prev) => ({
+        ...prev,
+        [fromGroup]: prev[fromGroup]?.filter((n) => n.id !== node.id) || [],
+      }))
+      
+      showToast({ 
+        title: "移除成功", 
+        description: `已将节点 "${node.name}" 移回节点池`, 
+        variant: "success" 
+      })
+      return
+    }
 
     // 分组内排序
     if (activeData?.node && activeData?.groupName && overData?.groupName) {
@@ -390,7 +474,7 @@ export default function ConfigsPage() {
     }
 
     // 从节点池拖入分组
-    if (activeData?.node && overData?.groupName) {
+    if (activeData?.node && overData?.groupName && !activeData?.fromGroup) {
       const node = activeData.node
       const groupName = overData.groupName
 
@@ -543,40 +627,8 @@ export default function ConfigsPage() {
       </PageHeader>
 
       <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        {/* 左侧：节点池 */}
-        <Card className="h-fit max-h-[calc(100vh-200px)]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">节点池</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[calc(100vh-280px)] pr-4">
-              <div className="space-y-2">
-                {poolGroupList.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    暂无可用节点
-                  </p>
-                ) : (
-                  poolGroupList.map((group, index) => (
-                    <NodePoolGroup
-                      key={group.id}
-                      groupName={group.name}
-                      nodes={group.nodes}
-                      groupColor={
-                        group.id === "ungrouped"
-                          ? "border-l-muted"
-                          : index === 1
-                          ? "border-l-primary"
-                          : index === 2
-                          ? "border-l-blue-500"
-                          : "border-l-purple-500"
-                      }
-                    />
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        {/* 左侧：节点池（支持拖回） */}
+        <DroppableNodePool poolGroupList={poolGroupList} />
 
         {/* 右侧：分组配置 + 预览 */}
         <div className="space-y-4">

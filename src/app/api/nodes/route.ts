@@ -58,22 +58,48 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// PUT /api/nodes - 批量更新节点
+// PUT /api/nodes - 更新节点（支持单个节点完整更新和批量分组更新）
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { nodeIds, groupId } = body
+    
+    // 判断是批量更新分组还是单个节点完整更新
+    if (body.nodeIds) {
+      // 批量更新分组（拖拽功能）
+      const { nodeIds, groupId } = body
+      
+      await prisma.proxyNode.updateMany({
+        where: {
+          id: { in: nodeIds },
+        },
+        data: {
+          groupId,
+        },
+      })
 
-    await prisma.proxyNode.updateMany({
-      where: {
-        id: { in: nodeIds },
-      },
-      data: {
-        groupId,
-      },
-    })
+      return NextResponse.json({ success: true })
+    } else if (body.id) {
+      // 单个节点完整更新（编辑功能）
+      const { id, name, type, server, port, config, groupId } = body
+      
+      const updatedNode = await prisma.proxyNode.update({
+        where: {
+          id,
+        },
+        data: {
+          name,
+          type,
+          server,
+          port,
+          config: config || {},
+          groupId: groupId || null,
+        },
+      })
 
-    return NextResponse.json({ success: true })
+      return NextResponse.json(updatedNode)
+    } else {
+      return NextResponse.json({ error: '无效的请求参数' }, { status: 400 })
+    }
   } catch (error) {
     console.error('更新节点失败:', error)
     return NextResponse.json({ error: '更新节点失败' }, { status: 500 })

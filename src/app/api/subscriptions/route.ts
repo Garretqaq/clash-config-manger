@@ -57,17 +57,22 @@ export async function POST(request: NextRequest) {
       const validatedProxies = proxies.filter(ClashParser.validateProxy)
       const normalizedProxies = validatedProxies.map(ClashParser.normalizeProxy)
 
-      await prisma.proxyNode.createMany({
-        data: normalizedProxies.map((proxy) => ({
-          name: proxy.name,
-          type: proxy.type,
-          server: proxy.server,
-          port: Number(proxy.port),
-          config: proxy.config as object,
-          subscriptionId: subscription.id,
-          groupId: group.id,
-        })),
-      })
+      // 分批创建节点，避免 MySQL max_allowed_packet 限制
+      const BATCH_SIZE = 500
+      for (let i = 0; i < normalizedProxies.length; i += BATCH_SIZE) {
+        const batch = normalizedProxies.slice(i, i + BATCH_SIZE)
+        await prisma.proxyNode.createMany({
+          data: batch.map((proxy) => ({
+            name: proxy.name,
+            type: proxy.type,
+            server: proxy.server,
+            port: Number(proxy.port),
+            config: proxy.config as object,
+            subscriptionId: subscription.id,
+            groupId: group.id,
+          })),
+        })
+      }
     }
 
     return NextResponse.json({
@@ -115,9 +120,11 @@ export async function PUT(request: NextRequest) {
       }
 
       const proxies = ClashParser.extractProxies(config)
+      console.log(`[订阅同步] ${subscription.name}: 获取到 ${proxies.length} 个原始节点`)
 
       // 验证节点配置
       const validatedProxies = proxies.filter(ClashParser.validateProxy)
+      console.log(`[订阅同步] ${subscription.name}: 验证通过 ${validatedProxies.length} 个节点，${proxies.length - validatedProxies.length} 个被过滤`)
 
       // 删除该订阅下的旧节点
       await prisma.proxyNode.deleteMany({
@@ -126,6 +133,7 @@ export async function PUT(request: NextRequest) {
 
       // 规范化节点配置
       const normalizedProxies = validatedProxies.map(ClashParser.normalizeProxy)
+      console.log(`[订阅同步] ${subscription.name}: 准备导入 ${normalizedProxies.length} 个节点`)
 
       // 获取订阅的默认分组
       let defaultGroup = subscription.groups.find((g) => g.name.endsWith('默认'))
@@ -139,18 +147,23 @@ export async function PUT(request: NextRequest) {
         })
       }
 
-      // 批量创建节点
-      await prisma.proxyNode.createMany({
-        data: normalizedProxies.map((proxy) => ({
-          name: proxy.name,
-          type: proxy.type,
-          server: proxy.server,
-          port: Number(proxy.port),
-          config: proxy.config as object,
-          subscriptionId: id,
-          groupId: defaultGroup.id,
-        })),
-      })
+      // 分批创建节点，避免 MySQL max_allowed_packet 限制
+      const BATCH_SIZE = 500
+      for (let i = 0; i < normalizedProxies.length; i += BATCH_SIZE) {
+        const batch = normalizedProxies.slice(i, i + BATCH_SIZE)
+        await prisma.proxyNode.createMany({
+          data: batch.map((proxy) => ({
+            name: proxy.name,
+            type: proxy.type,
+            server: proxy.server,
+            port: Number(proxy.port),
+            config: proxy.config as object,
+            subscriptionId: id,
+            groupId: defaultGroup.id,
+          })),
+        })
+      }
+      console.log(`[订阅同步] ${subscription.name}: 成功导入 ${normalizedProxies.length} 个节点`)
 
       // 更新同步时间
       await prisma.subscription.update({
