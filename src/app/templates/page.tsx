@@ -14,32 +14,152 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import { Plus, FileCode2, Trash2, Edit, Star, Copy } from "lucide-react"
+import { Plus, FileCode2, Trash2, Edit, Star } from "lucide-react"
+import { showToast } from "@/components/ui/toast"
+import { showConfirm } from "@/components/ui/confirm-dialog"
 import type { Template } from "@/lib/types"
 
-const DEFAULT_TEMPLATE = `# Clash 配置模板
-port: 7890
-socks-port: 7891
+const DEFAULT_TEMPLATE = `mixed-port: 7890
 allow-lan: true
+bind-address: "*"
 mode: rule
 log-level: info
-
+external-controller: 127.0.0.1:9090
+dns:
+    enable: true
+    ipv6: false
+    default-nameserver: [223.5.5.5, 119.29.29.29]
+    enhanced-mode: fake-ip
+    fake-ip-range: 198.18.0.1/16
+    use-hosts: true
+    nameserver: ['https://doh.pub/dns-query', 'https://dns.alidns.com/dns-query']
+    fallback: ['https://doh.dns.sb/dns-query', 'https://dns.cloudflare.com/dns-query', 'https://dns.twnic.tw/dns-query', 'tls://8.8.4.4:853']
+    fallback-filter: { geoip: true, ipcidr: [240.0.0.0/4, 0.0.0.0/32] }
 proxies: []
 
 proxy-groups:
-  - name: Proxy
+  - name: PROXY
     type: select
-    proxies: []
-  - name: Auto
+    proxies:
+      - 🚀自动选择
+  - name: 🚀自动选择
     type: url-test
-    proxies: []
+    proxies:
     url: 'http://www.gstatic.com/generate_204'
     interval: 300
-
+  - name: 🇯🇵日本节点
+    type: url-test
+    proxies:
+    url: 'http://www.gstatic.com/generate_204'
+    interval: 300
+rule-providers:
+  reject:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/reject.txt"
+    path: ./ruleset/reject.yaml
+    interval: 86400
+  icloud:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/icloud.txt"
+    path: ./ruleset/icloud.yaml
+    interval: 86400
+  apple:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/apple.txt"
+    path: ./ruleset/apple.yaml
+    interval: 86400
+  google:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/google.txt"
+    path: ./ruleset/google.yaml
+    interval: 86400
+  proxy:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/proxy.txt"
+    path: ./ruleset/proxy.yaml
+    interval: 86400
+  direct:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/direct.txt"
+    path: ./ruleset/direct.yaml
+    interval: 86400
+  private:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/private.txt"
+    path: ./ruleset/private.yaml
+    interval: 86400
+  gfw:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/gfw.txt"
+    path: ./ruleset/gfw.yaml
+    interval: 86400
+  tld-not-cn:
+    type: http
+    behavior: domain
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/tld-not-cn.txt"
+    path: ./ruleset/tld-not-cn.yaml
+    interval: 86400
+  telegramcidr:
+    type: http
+    behavior: ipcidr
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/telegramcidr.txt"
+    path: ./ruleset/telegramcidr.yaml
+    interval: 86400
+  cncidr:
+    type: http
+    behavior: ipcidr
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/cncidr.txt"
+    path: ./ruleset/cncidr.yaml
+    interval: 86400
+  lancidr:
+    type: http
+    behavior: ipcidr
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/lancidr.txt"
+    path: ./ruleset/lancidr.yaml
+    interval: 86400
+  applications:
+    type: http
+    behavior: classical
+    url: "https://cdn.jsdelivr.net/gh/Loyalsoldier/clash-rules@release/applications.txt"
+    path: ./ruleset/applications.yaml
+    interval: 86400
 rules:
+  - DOMAIN-SUFFIX,anthropic.com,🇯🇵日本节点
+  - DOMAIN-SUFFIX,claude.ai,🇯🇵日本节点
+  - DOMAIN-KEYWORD,claude,🇯🇵日本节点
+  - DOMAIN-KEYWORD,anthropic,🇯🇵日本节点
+  - DOMAIN-SUFFIX,chatgpt.com,🇯🇵日本节点
+  - DOMAIN-SUFFIX,10086.cn,PROXY
+  - DOMAIN-SUFFIX,jable.tv,PROXY
+  - DOMAIN,clash.razord.top,DIRECT
+  - DOMAIN,yacd.haishan.me,DIRECT
+  - DOMAIN-SUFFIX,netseas.net,DIRECT
+  - DOMAIN-SUFFIX,hanhandato.top,DIRECT
+  - DOMAIN-SUFFIX,hanhandato.cn,DIRECT
+  - DOMAIN-SUFFIX,motayun.net,DIRECT
+  - DOMAIN-SUFFIX,test.svc,DIRECT
+  - RULE-SET,applications,DIRECT
+  - RULE-SET,private,DIRECT
+  - RULE-SET,reject,REJECT
+  - RULE-SET,icloud,DIRECT
+  - RULE-SET,apple,DIRECT
+  - RULE-SET,google,PROXY
+  - RULE-SET,proxy,PROXY
+  - RULE-SET,direct,DIRECT
+  - RULE-SET,lancidr,DIRECT
+  - RULE-SET,cncidr,DIRECT
+  - RULE-SET,telegramcidr,PROXY
   - GEOIP,LAN,DIRECT
   - GEOIP,CN,DIRECT
-  - MATCH,Proxy
+  - MATCH,PROXY
 `
 
 export default function TemplatesPage() {
@@ -108,7 +228,7 @@ export default function TemplatesPage() {
             prev.map((t) => (t.id === editingTemplate.id ? updated : t))
           )
         } else {
-          alert(updated.error || "保存失败")
+          showToast({ title: "保存失败", description: updated.error || "未知错误", variant: "destructive" })
           return
         }
       } else {
@@ -122,7 +242,7 @@ export default function TemplatesPage() {
         if (res.ok) {
           setTemplates((prev) => [created, ...prev])
         } else {
-          alert(created.error || "创建失败")
+          showToast({ title: "创建失败", description: created.error || "未知错误", variant: "destructive" })
           return
         }
       }
@@ -133,13 +253,20 @@ export default function TemplatesPage() {
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm("确定要删除这个模板吗？")) return
+    const confirmed = await showConfirm({
+      title: "删除模板",
+      description: "确定要删除这个模板吗？",
+      variant: "destructive",
+    })
+    if (!confirmed) return
 
     try {
       await fetch(`/api/templates?id=${id}`, { method: "DELETE" })
       setTemplates((prev) => prev.filter((t) => t.id !== id))
+      showToast({ title: "删除成功", description: "模板已删除", variant: "success" })
     } catch (error) {
       console.error("删除模板失败:", error)
+      showToast({ title: "删除失败", description: "网络错误，请稍后重试", variant: "destructive" })
     }
   }
 

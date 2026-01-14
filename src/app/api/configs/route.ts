@@ -60,11 +60,12 @@ export async function POST(request: NextRequest) {
         .filter(Boolean) as string[]
     }
 
-    // 生成配置
+    // 生成配置，移除模板中不在 nodeMapping 的分组
     const content = ClashGenerator.generate({
       template: template.content,
       proxies,
       nodeMapping: nodeNameMapping,
+      removeUnusedGroups: true,
     })
 
     const config = await prisma.config.create({

@@ -27,7 +27,7 @@ function Toast({ title, description, variant = "default", onClose }: ToastProps)
   return (
     <div
       className={cn(
-        "fixed bottom-4 right-4 z-50 w-80 rounded-lg p-4 shadow-lg animate-in slide-in-from-bottom-5",
+        "fixed bottom-6 right-6 z-50 w-80 rounded-lg p-4 shadow-lg animate-in slide-in-from-bottom-4 fade-in duration-300",
         variants[variant]
       )}
     >

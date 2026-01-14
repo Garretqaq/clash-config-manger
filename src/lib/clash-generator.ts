@@ -5,6 +5,7 @@ interface GenerateOptions {
   template: string
   proxies: ClashProxyConfig[]
   nodeMapping: Record<string, string[]> // groupName -> nodeNames
+  removeUnusedGroups?: boolean // 是否移除不在 nodeMapping 中的分组
 }
 
 export class ClashGenerator {
@@ -12,7 +13,7 @@ export class ClashGenerator {
    * 生成完整的 Clash 配置
    */
   static generate(options: GenerateOptions): string {
-    const { template, proxies, nodeMapping } = options
+    const { template, proxies, nodeMapping, removeUnusedGroups = false } = options
 
     // 解析模板
     const config = yaml.load(template) as ClashConfig
@@ -20,18 +21,45 @@ export class ClashGenerator {
     // 设置代理节点
     config.proxies = proxies
 
+    // 获取模板中原始的分组名称
+    const templateGroupNames = new Set(
+      (config['proxy-groups'] || []).map((g) => g.name)
+    )
+
     // 更新分组中的节点
     if (config['proxy-groups']) {
-      config['proxy-groups'] = config['proxy-groups'].map((group) => {
-        const mappedNodes = nodeMapping[group.name]
-        if (mappedNodes && mappedNodes.length > 0) {
-          return {
-            ...group,
-            proxies: mappedNodes,
+      const nodeMappingGroupNames = Object.keys(nodeMapping)
+      config['proxy-groups'] = config['proxy-groups']
+        .filter((group) => {
+          // 如果启用了移除未使用分组，则过滤掉不在 nodeMapping 中的分组
+          if (removeUnusedGroups) {
+            return nodeMappingGroupNames.includes(group.name)
           }
-        }
-        return group
-      })
+          return true
+        })
+        .map((group) => {
+          const mappedNodes = nodeMapping[group.name]
+          if (mappedNodes && mappedNodes.length > 0) {
+            return {
+              ...group,
+              proxies: mappedNodes,
+            }
+          }
+          // 如果没有节点，保留原有 proxies（不覆盖为空）
+          return group
+        })
+
+      // 添加自定义分组（模板中不存在但在 nodeMapping 中的）
+      if (removeUnusedGroups) {
+        const customGroups = nodeMappingGroupNames
+          .filter((name) => !templateGroupNames.has(name))
+          .map((name) => ({
+            name,
+            type: 'select' as const,
+            proxies: nodeMapping[name] || [],
+          }))
+        config['proxy-groups'] = [...config['proxy-groups'], ...customGroups]
+      }
     }
 
     return yaml.dump(config, {

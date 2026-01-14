@@ -6,7 +6,10 @@
       "Bash(npx prisma generate:*)",
       "Bash(npx prisma db push:*)",
       "Bash(npm run build:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Skill(ui-ux-pro-max)",
+      "Skill(ui-ux-pro-max:*)",
+      "Bash(python3 scripts/search.py \"toast animation\" --domain ux -n 5)"
     ]
   }
 }

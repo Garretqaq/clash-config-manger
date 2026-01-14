@@ -1,14 +1,25 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   DndContext,
-  DragEndEvent,
   DragOverlay,
   DragStartEvent,
+  DragEndEvent,
   useDroppable,
   useDraggable,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core"
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -24,20 +35,22 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import {
-  Plus,
-  Download,
   Save,
-  Trash2,
-  FileCode2,
   Server,
-  GripVertical,
   Folder,
+  ChevronDown,
+  ChevronRight,
+  GripVertical,
+  Trash2,
+  Plus,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ProxyNode, Template, Config } from "@/lib/types"
+import { ClashGenerator } from "@/lib/clash-generator"
+import { showToast } from "@/components/ui/toast"
+import type { ProxyNode, Template, Group } from "@/lib/types"
 
-// 小型可拖拽节点卡片
-function DraggableNode({ node }: { node: ProxyNode }) {
+// 可拖拽的节点卡片
+function DraggablePoolNode({ node }: { node: ProxyNode }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `node-${node.id}`,
     data: { node },
@@ -54,16 +67,112 @@ function DraggableNode({ node }: { node: ProxyNode }) {
       {...attributes}
       {...listeners}
       className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-md border bg-card cursor-grab active:cursor-grabbing transition-all",
-        isDragging ? "opacity-50 shadow-lg" : "hover:bg-accent"
+        "flex items-center gap-2 px-3 py-1.5 rounded hover:bg-accent text-sm cursor-grab active:cursor-grabbing transition-all",
+        isDragging && "opacity-50 shadow-lg bg-accent"
       )}
     >
       <GripVertical className="h-3 w-3 text-muted-foreground" />
       <Server className="h-3 w-3 text-muted-foreground" />
-      <span className="text-sm truncate flex-1">{node.name}</span>
-      <Badge variant="secondary" className="text-xs px-1.5">
+      <span className="truncate flex-1">{node.name}</span>
+      <Badge variant="outline" className="text-[10px] px-1">
         {node.type}
       </Badge>
+    </div>
+  )
+}
+
+// 节点池分组（可折叠）
+function NodePoolGroup({
+  groupName,
+  nodes,
+  groupColor = "border-l-primary",
+}: {
+  groupName: string
+  nodes: ProxyNode[]
+  groupColor?: string
+}) {
+  const [isExpanded, setIsExpanded] = useState(true)
+
+  if (nodes.length === 0) return null
+
+  return (
+    <div className={cn("border rounded-lg overflow-hidden", groupColor)}>
+      <button
+        onClick={() => setIsExpanded(!isExpanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted transition-colors text-left"
+      >
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        ) : (
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        )}
+        <span className="font-medium text-sm flex-1">{groupName}</span>
+        <Badge variant="secondary" className="text-xs">
+          {nodes.length}
+        </Badge>
+      </button>
+      {isExpanded && (
+        <div className="p-2 space-y-1">
+          {nodes.map((node) => (
+            <DraggablePoolNode key={node.id} node={node} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 可排序的分组节点
+function SortableGroupNode({
+  node,
+  groupName,
+  onRemove,
+}: {
+  node: ProxyNode
+  groupName: string
+  onRemove: (nodeId: string) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: `sort-${groupName}-${node.id}`,
+    data: { node, groupName },
+  })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 transition-colors",
+        isDragging && "opacity-50 shadow-lg bg-primary/10"
+      )}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
+      >
+        <GripVertical className="h-3 w-3" />
+      </button>
+      <Server className="h-3 w-3 text-muted-foreground" />
+      <span className="text-sm truncate flex-1">{node.name}</span>
+      <button
+        onClick={() => onRemove(node.id)}
+        className="text-muted-foreground hover:text-destructive cursor-pointer"
+      >
+        <Trash2 className="h-3 w-3" />
+      </button>
     </div>
   )
 }
@@ -73,10 +182,12 @@ function DroppableGroup({
   groupName,
   nodes,
   onRemoveNode,
+  onRemoveGroup,
 }: {
   groupName: string
   nodes: ProxyNode[]
   onRemoveNode: (nodeId: string) => void
+  onRemoveGroup: () => void
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: `config-group-${groupName}`,
@@ -97,38 +208,43 @@ function DroppableGroup({
         <Badge variant="outline" className="ml-auto">
           {nodes.length}
         </Badge>
+        <button
+          onClick={onRemoveGroup}
+          className="text-muted-foreground hover:text-destructive cursor-pointer p-1 rounded hover:bg-destructive/10"
+          title="删除分组"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
       </div>
-      <div className="space-y-2">
-        {nodes.length === 0 ? (
-          <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
-            拖拽节点到此处
-          </div>
-        ) : (
-          nodes.map((node) => (
-            <div
-              key={node.id}
-              className="flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50"
-            >
-              <Server className="h-3 w-3 text-muted-foreground" />
-              <span className="text-sm truncate flex-1">{node.name}</span>
-              <button
-                onClick={() => onRemoveNode(node.id)}
-                className="text-muted-foreground hover:text-destructive cursor-pointer"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
+      <SortableContext
+        items={nodes.map((n) => `sort-${groupName}-${n.id}`)}
+        strategy={verticalListSortingStrategy}
+      >
+        <div className="space-y-2">
+          {nodes.length === 0 ? (
+            <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
+              拖拽节点到此处
             </div>
-          ))
-        )}
-      </div>
+          ) : (
+            nodes.map((node) => (
+              <SortableGroupNode
+                key={node.id}
+                node={node}
+                groupName={groupName}
+                onRemove={onRemoveNode}
+              />
+            ))
+          )}
+        </div>
+      </SortableContext>
     </div>
   )
 }
 
 export default function ConfigsPage() {
   const [nodes, setNodes] = useState<ProxyNode[]>([])
+  const [groups, setGroups] = useState<Group[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
-  const [configs, setConfigs] = useState<Config[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
@@ -138,22 +254,24 @@ export default function ConfigsPage() {
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
 
   const [isSaveOpen, setIsSaveOpen] = useState(false)
+  const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
+  const [newGroupName, setNewGroupName] = useState("")
 
   const fetchData = useCallback(async () => {
     try {
-      const [nodesRes, templatesRes, configsRes] = await Promise.all([
+      const [nodesRes, templatesRes, groupsRes] = await Promise.all([
         fetch("/api/nodes"),
         fetch("/api/templates"),
-        fetch("/api/configs"),
+        fetch("/api/groups"),
       ])
-      const [nodesData, templatesData, configsData] = await Promise.all([
+      const [nodesData, templatesData, groupsData] = await Promise.all([
         nodesRes.json(),
         templatesRes.json(),
-        configsRes.json(),
+        groupsRes.json(),
       ])
       setNodes(nodesData)
+      setGroups(groupsData)
       setTemplates(templatesData)
-      setConfigs(configsData)
 
       // 选择默认模板
       const defaultTemplate = templatesData.find((t: Template) => t.isDefault) || templatesData[0]
@@ -171,6 +289,33 @@ export default function ConfigsPage() {
     fetchData()
   }, [fetchData])
 
+  // 实时更新预览
+  useEffect(() => {
+    if (!selectedTemplate || !selectedTemplate.content) return
+
+    // 收集所有已选择的节点
+    const allSelectedNodes = Object.values(nodeMapping).flat()
+
+    // 生成节点配置
+    const proxyConfigs = ClashGenerator.generateProxies(allSelectedNodes)
+
+    // 生成节点名称映射
+    const nodeMappingNames: Record<string, string[]> = {}
+    for (const [groupName, groupNodes] of Object.entries(nodeMapping)) {
+      nodeMappingNames[groupName] = groupNodes.map((n) => n.name)
+    }
+
+    // 生成预览
+    const preview = ClashGenerator.generate({
+      template: selectedTemplate.content,
+      proxies: proxyConfigs,
+      nodeMapping: nodeMappingNames,
+      removeUnusedGroups: true,
+    })
+
+    setPreviewContent(preview)
+  }, [nodeMapping, selectedTemplate])
+
   const selectTemplate = (template: Template) => {
     setSelectedTemplate(template)
     // 解析模板中的分组
@@ -180,7 +325,6 @@ export default function ConfigsPage() {
       mapping[name] = []
     })
     setNodeMapping(mapping)
-    setPreviewContent(template.content)
   }
 
   const extractGroupNames = (content: string): string[] => {
@@ -219,11 +363,37 @@ export default function ConfigsPage() {
 
     if (!over) return
 
-    const data = active.data.current as { node?: ProxyNode }
-    const overData = over.data.current as { groupName?: string }
+    const activeData = active.data.current as { node?: ProxyNode; groupName?: string }
+    const overData = over.data.current as { node?: ProxyNode; groupName?: string }
 
-    if (data?.node && overData?.groupName) {
-      const node = data.node
+    // 分组内排序
+    if (activeData?.node && activeData?.groupName && overData?.groupName) {
+      const activeGroup = activeData.groupName
+      const overGroup = overData.groupName
+
+      if (activeGroup === overGroup) {
+        // 同组排序
+        const nodes = [...(nodeMapping[activeGroup] || [])]
+        const oldIndex = nodes.findIndex((n) => n.id === activeData.node?.id)
+        const overNode = overData.node
+
+        if (overNode) {
+          const newIndex = nodes.findIndex((n) => n.id === overNode.id)
+          if (oldIndex !== -1 && newIndex !== -1) {
+            const newNodes = arrayMove(nodes, oldIndex, newIndex)
+            setNodeMapping((prev) => ({
+              ...prev,
+              [activeGroup]: newNodes,
+            }))
+          }
+        }
+        return
+      }
+    }
+
+    // 从节点池拖入分组
+    if (activeData?.node && overData?.groupName) {
+      const node = activeData.node
       const groupName = overData.groupName
 
       // 检查是否已存在
@@ -243,6 +413,31 @@ export default function ConfigsPage() {
       ...prev,
       [groupName]: prev[groupName]?.filter((n) => n.id !== nodeId) || [],
     }))
+  }
+
+  const handleRemoveGroup = (groupName: string) => {
+    setNodeMapping((prev) => {
+      const newMapping = { ...prev }
+      delete newMapping[groupName]
+      return newMapping
+    })
+  }
+
+  const handleAddGroup = () => {
+    if (!newGroupName.trim()) return
+
+    if (nodeMapping[newGroupName.trim()]) {
+      showToast({ title: "分组已存在", description: "该分组名称已存在", variant: "destructive" })
+      return
+    }
+
+    setNodeMapping((prev) => ({
+      ...prev,
+      [newGroupName.trim()]: [],
+    }))
+    showToast({ title: "添加成功", description: `分组 "${newGroupName.trim()}" 已添加`, variant: "success" })
+    setIsAddGroupOpen(false)
+    setNewGroupName("")
   }
 
   const handleSaveConfig = async () => {
@@ -266,37 +461,15 @@ export default function ConfigsPage() {
       const config = await res.json()
 
       if (res.ok) {
-        setConfigs((prev) => [config, ...prev])
-        setPreviewContent(config.content)
         setIsSaveOpen(false)
         setConfigName("")
-        alert("配置保存成功！")
+        showToast({ title: "保存成功", description: "配置已成功保存", variant: "success" })
       } else {
-        alert(config.error || "保存失败")
+        showToast({ title: "保存失败", description: config.error || "未知错误", variant: "destructive" })
       }
     } catch (error) {
       console.error("保存配置失败:", error)
-    }
-  }
-
-  const handleExport = (content: string, name: string) => {
-    const blob = new Blob([content], { type: "text/yaml" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${name}.yaml`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const handleDeleteConfig = async (id: string) => {
-    if (!confirm("确定要删除这个配置吗？")) return
-
-    try {
-      await fetch(`/api/configs?id=${id}`, { method: "DELETE" })
-      setConfigs((prev) => prev.filter((c) => c.id !== id))
-    } catch (error) {
-      console.error("删除配置失败:", error)
+      showToast({ title: "保存失败", description: "网络错误，请稍后重试", variant: "destructive" })
     }
   }
 
@@ -308,6 +481,47 @@ export default function ConfigsPage() {
   )
   const availableNodes = nodes.filter((n) => !usedNodeIds.has(n.id))
 
+  // 按分组组织节点
+  const nodesByGroup = useMemo(() => {
+    const result: Record<string, ProxyNode[]> = {}
+    // 未分组的节点
+    result["ungrouped"] = availableNodes.filter((n) => !n.groupId)
+    // 按 groupId 分组
+    availableNodes.forEach((node) => {
+      if (node.groupId) {
+        if (!result[node.groupId]) result[node.groupId] = []
+        result[node.groupId].push(node)
+      }
+    })
+    return result
+  }, [availableNodes])
+
+  // 生成节点池分组列表（未分组优先）
+  const poolGroupList = useMemo(() => {
+    const list: { id: string; name: string; nodes: ProxyNode[] }[] = []
+    // 先添加未分组
+    if (nodesByGroup["ungrouped"]?.length > 0) {
+      list.push({ id: "ungrouped", name: "未分组", nodes: nodesByGroup["ungrouped"] })
+    }
+    // 再添加其他分组
+    groups.forEach((group) => {
+      if (nodesByGroup[group.id]?.length > 0) {
+        list.push({ id: group.id, name: group.name, nodes: nodesByGroup[group.id] })
+      }
+    })
+    return list
+  }, [nodesByGroup, groups])
+
+  // sensors 必须在所有条件之前定义
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor)
+  )
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-[50vh]">
@@ -317,7 +531,12 @@ export default function ConfigsPage() {
   }
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
       <PageHeader title="配置生成" description="选择模板，拖拽节点生成配置文件">
         <Button onClick={() => setIsSaveOpen(true)} disabled={!selectedTemplate}>
           <Save className="h-4 w-4 mr-2" />
@@ -325,22 +544,35 @@ export default function ConfigsPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-6 lg:grid-cols-[300px_1fr_300px]">
+      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
         {/* 左侧：节点池 */}
         <Card className="h-fit max-h-[calc(100vh-200px)]">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">节点池</CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[400px] pr-4">
+            <ScrollArea className="h-[calc(100vh-280px)] pr-4">
               <div className="space-y-2">
-                {availableNodes.length === 0 ? (
+                {poolGroupList.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">
                     暂无可用节点
                   </p>
                 ) : (
-                  availableNodes.map((node) => (
-                    <DraggableNode key={node.id} node={node} />
+                  poolGroupList.map((group, index) => (
+                    <NodePoolGroup
+                      key={group.id}
+                      groupName={group.name}
+                      nodes={group.nodes}
+                      groupColor={
+                        group.id === "ungrouped"
+                          ? "border-l-muted"
+                          : index === 1
+                          ? "border-l-primary"
+                          : index === 2
+                          ? "border-l-blue-500"
+                          : "border-l-purple-500"
+                      }
+                    />
                   ))
                 )}
               </div>
@@ -348,7 +580,7 @@ export default function ConfigsPage() {
           </CardContent>
         </Card>
 
-        {/* 中间：分组配置 */}
+        {/* 右侧：分组配置 + 预览 */}
         <div className="space-y-4">
           {/* 模板选择 */}
           <Card>
@@ -386,57 +618,37 @@ export default function ConfigsPage() {
                       groupName={groupName}
                       nodes={nodeMapping[groupName] || []}
                       onRemoveNode={(nodeId) => handleRemoveNode(groupName, nodeId)}
+                      onRemoveGroup={() => handleRemoveGroup(groupName)}
                     />
                   ))}
                 </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 w-full"
+                  onClick={() => setIsAddGroupOpen(true)}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加分组
+                </Button>
               </CardContent>
             </Card>
           )}
-        </div>
 
-        {/* 右侧：已保存配置列表 */}
-        <Card className="h-fit">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">已保存配置</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[400px] pr-4">
-              <div className="space-y-3">
-                {configs.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    暂无已保存配置
-                  </p>
-                ) : (
-                  configs.map((config) => (
-                    <div
-                      key={config.id}
-                      className="flex items-center gap-2 p-3 rounded-lg border hover:bg-accent transition-colors"
-                    >
-                      <FileCode2 className="h-4 w-4 text-primary" />
-                      <span className="text-sm flex-1 truncate">{config.name}</span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7"
-                        onClick={() => handleExport(config.content, config.name)}
-                      >
-                        <Download className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                        onClick={() => handleDeleteConfig(config.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+          {/* 配置预览 */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">配置预览</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[300px] rounded-lg border">
+                <pre className="p-4 text-xs font-mono whitespace-pre-wrap">
+                  {previewContent || "选择模板后将显示预览"}
+                </pre>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* 拖拽预览 */}
@@ -471,6 +683,32 @@ export default function ConfigsPage() {
               取消
             </Button>
             <Button onClick={handleSaveConfig}>保存</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 添加分组对话框 */}
+      <Dialog open={isAddGroupOpen} onOpenChange={setIsAddGroupOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>添加分组</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">分组名称</label>
+              <Input
+                placeholder="例如: 香港节点"
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddGroup()}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddGroupOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleAddGroup}>添加</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

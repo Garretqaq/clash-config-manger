@@ -8,7 +8,8 @@ import {
   Rss,
   FileCode2,
   Settings2,
-  LayoutDashboard
+  LayoutDashboard,
+  FileText
 } from "lucide-react"
 import { ThemeToggle } from "./ThemeToggle"
 
@@ -32,6 +33,11 @@ const menuItems = [
     title: "配置生成",
     href: "/configs",
     icon: Settings2,
+  },
+  {
+    title: "配置管理",
+    href: "/generated-configs",
+    icon: FileText,
   },
 ]
 
