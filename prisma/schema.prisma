@@ -71,3 +71,22 @@ model Config {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+model ShareLink {
+  id            String    @id @default(cuid())
+  shareId       String    @unique @default(cuid())  // 12字符随机ID
+  accessToken   String    @unique // HMAC-SHA256(shareId + password)
+  configId      String?   // 关联的配置 ID
+  configName    String?
+  configContent String    @db.LongText
+  description   String?
+  expiresAt     DateTime?
+  views         Int       @default(0)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([shareId])
+  @@index([accessToken])
+  @@index([expiresAt])
+  @@index([configId])
+}

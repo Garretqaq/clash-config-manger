@@ -21,9 +21,11 @@ import {
   Copy,
   Check,
   Pencil,
+  Share2,
 } from "lucide-react"
 import { showToast } from "@/components/ui/toast"
 import { showConfirm } from "@/components/ui/confirm-dialog"
+import { ShareDialog } from "@/components/share/ShareDialog"
 import type { Config } from "@/lib/types"
 
 export default function GeneratedConfigsPage() {
@@ -32,6 +34,7 @@ export default function GeneratedConfigsPage() {
   const [loading, setLoading] = useState(true)
   const [previewConfig, setPreviewConfig] = useState<Config | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [shareConfig, setShareConfig] = useState<{ name: string; content: string } | null>(null)
 
   const fetchConfigs = useCallback(async () => {
     try {
@@ -170,6 +173,15 @@ export default function GeneratedConfigsPage() {
                     导出
                   </Button>
                   <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setShareConfig({ name: config.name, content: config.content })}
+                  >
+                    <Share2 className="h-3 w-3 mr-1" />
+                    分享
+                  </Button>
+                  <Button
                     variant="ghost"
                     size="icon"
                     onClick={() => handleCopy(config.content, config.id)}
@@ -208,6 +220,14 @@ export default function GeneratedConfigsPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+
+      {/* 分享对话框 */}
+      <ShareDialog
+        open={!!shareConfig}
+        onOpenChange={(open) => !open && setShareConfig(null)}
+        configName={shareConfig?.name || ""}
+        configContent={shareConfig?.content || ""}
+      />
     </>
   )
 }
