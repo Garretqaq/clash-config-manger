@@ -215,7 +215,7 @@ export default function SharesPage() {
                       />
                     </th>
                     <th className="p-4 text-left font-medium">配置名称</th>
-                    <th className="p-4 text-left font-medium">描述</th>
+                    <th className="p-4 text-left font-medium">类型</th>
                     <th className="p-4 text-left font-medium">有效期</th>
                     <th className="p-4 text-left font-medium">浏览</th>
                     <th className="p-4 text-left font-medium">状态</th>
@@ -232,9 +232,11 @@ export default function SharesPage() {
                           onChange={(e) => handleSelectOne(link.shareId, e.target.checked)}
                         />
                       </td>
-                      <td className="p-4 font-medium">{link.configName}</td>
-                      <td className="p-4 text-muted-foreground">
-                        {link.description || "-"}
+                      <td className="p-4 font-medium">{link.configName || "-"}</td>
+                      <td className="p-4">
+                        <Badge variant={link.isDynamic ? "default" : "outline"}>
+                          {link.isDynamic ? "动态" : "静态"}
+                        </Badge>
                       </td>
                       <td className="p-4 text-sm">{formatDate(link.expiresAt)}</td>
                       <td className="p-4 text-sm">{link.views}</td>

@@ -39,13 +39,14 @@ interface ShareResult {
   expiresAt: string | null
 }
 
-export function ShareDialog({ open, onOpenChange, configName, configContent }: ShareDialogProps) {
+export function ShareDialog({ open, onOpenChange, configId, configName, configContent }: ShareDialogProps) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ShareResult | null>(null)
   const [copied, setCopied] = useState<{ url: boolean; token: boolean }>({ url: false, token: false })
   const [formData, setFormData] = useState({
     description: "",
     expiresIn: "never",
+    shareType: "dynamic", // 默认动态分享
   })
 
   const handleCreateShare = async () => {
@@ -55,6 +56,8 @@ export function ShareDialog({ open, onOpenChange, configName, configContent }: S
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // 动态分享时传递 configId，静态分享时不传递
+          ...(formData.shareType === "dynamic" && configId ? { configId } : {}),
           configName,
           configContent,
           description: formData.description,
@@ -89,6 +92,7 @@ export function ShareDialog({ open, onOpenChange, configName, configContent }: S
     setFormData({
       description: "",
       expiresIn: "never",
+      shareType: "dynamic",
     })
     onOpenChange(false)
   }
@@ -105,6 +109,29 @@ export function ShareDialog({ open, onOpenChange, configName, configContent }: S
 
         {!result ? (
           <div className="space-y-4 py-4">
+            {/* Share Type */}
+            {configId && (
+              <div className="space-y-2">
+                <Label>分享类型</Label>
+                <Select
+                  value={formData.shareType}
+                  onValueChange={(value) => setFormData({ ...formData, shareType: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dynamic">
+                      动态分享（配置更新后自动获取最新内容）
+                    </SelectItem>
+                    <SelectItem value="static">
+                      静态分享（分享时的内容固定不变）
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Description */}
             <div className="space-y-2">
               <Label htmlFor="description">分享描述（可选）</Label>

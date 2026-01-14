@@ -44,10 +44,12 @@ export async function GET(request: NextRequest) {
         id: true,
         shareId: true,
         accessToken: true,
+        configId: true,
         configName: true,
         description: true,
         expiresAt: true,
         views: true,
+        isDynamic: true,
         createdAt: true,
       },
     })
@@ -88,11 +90,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { configId, configName, configContent, description, expiresIn } = body
 
-    // Validate required fields
-    if (!configContent) {
-      return NextResponse.json({ error: '配置内容不能为空' }, { status: 400 })
-    }
-
     // Generate share ID and token
     const shareId = nanoid(12)
     const accessToken = nanoid(32)
@@ -117,20 +114,63 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create share link with token
+    // Check if this is a dynamic share (linked to a config)
+    if (configId) {
+      // Fetch the config to verify it exists and get its name
+      const config = await prisma.config.findUnique({
+        where: { id: configId },
+      })
+
+      if (!config) {
+        return NextResponse.json({ error: '配置不存在' }, { status: 404 })
+      }
+
+      // Create dynamic share link (content fetched from config on access)
+      const shareLink = await prisma.shareLink.create({
+        data: {
+          shareId,
+          accessToken,
+          configId: config.id,
+          configName: config.name,
+          configContent: null, // Content will be fetched from Config table
+          description,
+          expiresAt,
+          isDynamic: true,
+        },
+      })
+
+      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      const shareUrl = `${baseUrl}/api/share/${shareId}?token=${accessToken}`
+
+      return NextResponse.json({
+        id: shareLink.id,
+        shareId: shareLink.shareId,
+        shareUrl,
+        token: accessToken,
+        expiresAt: shareLink.expiresAt,
+        createdAt: shareLink.createdAt,
+        isDynamic: true,
+      }, { status: 201 })
+    }
+
+    // Static share (direct content)
+    if (!configContent) {
+      return NextResponse.json({ error: '配置内容不能为空' }, { status: 400 })
+    }
+
     const shareLink = await prisma.shareLink.create({
       data: {
         shareId,
         accessToken,
-        configId: configId || null,
+        configId: null,
         configName: configName || '未命名配置',
         configContent,
         description,
         expiresAt,
+        isDynamic: false,
       },
     })
 
-    // Generate share URL with token
     const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
     const shareUrl = `${baseUrl}/api/share/${shareId}?token=${accessToken}`
 
@@ -141,6 +181,7 @@ export async function POST(request: NextRequest) {
       token: accessToken,
       expiresAt: shareLink.expiresAt,
       createdAt: shareLink.createdAt,
+      isDynamic: false,
     }, { status: 201 })
   } catch (error) {
     console.error('Failed to create share link:', error)

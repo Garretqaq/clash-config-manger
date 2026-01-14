@@ -58,12 +58,37 @@ export async function GET(
       data: { views: { increment: 1 } },
     })
 
+    // Get config content - either from dynamic config or stored content
+    let configContent: string
+    let configName: string
+
+    if (shareLink.isDynamic && shareLink.configId) {
+      // Fetch latest content from Config table
+      const config = await prisma.config.findUnique({
+        where: { id: shareLink.configId },
+      })
+
+      if (!config) {
+        return new NextResponse('关联的配置已被删除', { status: 404 })
+      }
+
+      configContent = config.content
+      configName = config.name
+    } else {
+      // Use stored content
+      if (!shareLink.configContent) {
+        return new NextResponse('配置内容不存在', { status: 404 })
+      }
+      configContent = shareLink.configContent
+      configName = shareLink.configName || 'config'
+    }
+
     // Return raw YAML content
-    return new NextResponse(shareLink.configContent, {
+    return new NextResponse(configContent, {
       status: 200,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Disposition': `attachment; filename=${(shareLink.configName || 'config').replace(/[^a-zA-Z0-9_-]/g, '_')}.yaml`,
+        'Content-Disposition': `attachment; filename=${configName.replace(/[^a-zA-Z0-9_-]/g, '_')}.yaml`,
       },
     })
   } catch (error) {

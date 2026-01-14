@@ -9,7 +9,8 @@
       "Bash(curl:*)",
       "Skill(ui-ux-pro-max)",
       "Skill(ui-ux-pro-max:*)",
-      "Bash(python3 scripts/search.py \"toast animation\" --domain ux -n 5)"
+      "Bash(python3 scripts/search.py \"toast animation\" --domain ux -n 5)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

@@ -78,10 +78,11 @@ model ShareLink {
   accessToken   String    @unique // HMAC-SHA256(shareId + password)
   configId      String?   // 关联的配置 ID
   configName    String?
-  configContent String    @db.LongText
+  configContent String?   @db.LongText  // 可为空，动态分享时从配置获取
   description   String?
   expiresAt     DateTime?
   views         Int       @default(0)
+  isDynamic     Boolean   @default(false)  // 是否动态获取配置内容
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 

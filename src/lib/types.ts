@@ -104,9 +104,10 @@ export interface ShareLink {
   id: string
   shareId: string
   configId?: string | null
-  configName: string
+  configName?: string | null
   description?: string | null
   expiresAt?: string | null
   views: number
+  isDynamic: boolean
   createdAt: string
 }
