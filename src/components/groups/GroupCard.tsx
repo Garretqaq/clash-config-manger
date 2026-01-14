@@ -13,6 +13,7 @@ interface GroupCardProps {
   nodes: ProxyNode[]
   onDeleteGroup?: (id: string) => void
   onDeleteNode?: (id: string) => void
+  onEditNode?: (node: ProxyNode) => void
   onTestNodes?: (ids: string[]) => void
   connections?: Record<string, { connected: boolean; port: number }>
   testingNodes?: Set<string>
@@ -23,6 +24,7 @@ export function GroupCard({
   nodes,
   onDeleteGroup,
   onDeleteNode,
+  onEditNode,
   onTestNodes,
   connections = {},
   testingNodes = new Set(),
@@ -97,6 +99,7 @@ export function GroupCard({
               key={node.id}
               node={node}
               onDelete={onDeleteNode}
+              onEdit={onEditNode}
               connected={connections[node.id]?.connected}
               testPort={connections[node.id]?.port}
               isTesting={testingNodes.has(node.id)}

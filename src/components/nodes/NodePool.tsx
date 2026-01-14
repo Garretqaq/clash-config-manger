@@ -12,6 +12,7 @@ import { NodeCard } from "./NodeCard"
 interface NodePoolProps {
   nodes: ProxyNode[]
   onDeleteNode?: (id: string) => void
+  onEditNode?: (node: ProxyNode) => void
   onTestNodes?: (ids: string[]) => void
   connections?: Record<string, { connected: boolean; port: number }>
   testingNodes?: Set<string>
@@ -20,6 +21,7 @@ interface NodePoolProps {
 export function NodePool({
   nodes,
   onDeleteNode,
+  onEditNode,
   onTestNodes,
   connections = {},
   testingNodes = new Set(),
@@ -94,6 +96,7 @@ export function NodePool({
                 key={node.id}
                 node={node}
                 onDelete={onDeleteNode}
+                onEdit={onEditNode}
                 connected={connections[node.id]?.connected}
                 testPort={connections[node.id]?.port}
                 isTesting={testingNodes.has(node.id)}

@@ -89,7 +89,11 @@ export async function PUT(request: NextRequest) {
     if (action === 'sync') {
       const subscription = await prisma.subscription.findUnique({
         where: { id },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          url: true,
+          yamlContent: true,
           groups: true,
         },
       })
@@ -98,8 +102,18 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: '订阅不存在' }, { status: 404 })
       }
 
-      // 获取并解析配置
-      const config = await ClashParser.fetchFromUrl(subscription.url)
+      // 获取并解析配置：优先使用 yamlContent，其次使用 URL
+      let config
+      if (subscription.yamlContent) {
+        // 使用存储的 yamlContent
+        config = ClashParser.parseContent(subscription.yamlContent)
+      } else if (subscription.url) {
+        // 从 URL 获取
+        config = await ClashParser.fetchFromUrl(subscription.url)
+      } else {
+        return NextResponse.json({ error: '订阅没有可用的配置内容' }, { status: 400 })
+      }
+
       const proxies = ClashParser.extractProxies(config)
 
       // 验证节点配置

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -19,12 +20,14 @@ import {
   Eye,
   Copy,
   Check,
+  Pencil,
 } from "lucide-react"
 import { showToast } from "@/components/ui/toast"
 import { showConfirm } from "@/components/ui/confirm-dialog"
 import type { Config } from "@/lib/types"
 
 export default function GeneratedConfigsPage() {
+  const router = useRouter()
   const [configs, setConfigs] = useState<Config[]>([])
   const [loading, setLoading] = useState(true)
   const [previewConfig, setPreviewConfig] = useState<Config | null>(null)
@@ -147,6 +150,15 @@ export default function GeneratedConfigsPage() {
                   >
                     <Eye className="h-3 w-3 mr-1" />
                     预览
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => router.push(`/configs/edit/${config.id}`)}
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    编辑
                   </Button>
                   <Button
                     variant="outline"

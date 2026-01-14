@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import {
   DndContext,
   DragOverlay,
@@ -43,6 +44,7 @@ import {
   GripVertical,
   Trash2,
   Plus,
+  Loader2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClashGenerator } from "@/lib/clash-generator"
@@ -242,6 +244,8 @@ function DroppableGroup({
 }
 
 export default function ConfigsPage() {
+  const router = useRouter()
+
   const [nodes, setNodes] = useState<ProxyNode[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
@@ -272,12 +276,6 @@ export default function ConfigsPage() {
       setNodes(nodesData)
       setGroups(groupsData)
       setTemplates(templatesData)
-
-      // 选择默认模板
-      const defaultTemplate = templatesData.find((t: Template) => t.isDefault) || templatesData[0]
-      if (defaultTemplate) {
-        selectTemplate(defaultTemplate)
-      }
     } catch (error) {
       console.error("获取数据失败:", error)
     } finally {

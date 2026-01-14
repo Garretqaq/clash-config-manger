@@ -12,6 +12,7 @@ import {
   Wifi,
   WifiOff,
   Loader2,
+  Pencil,
 } from "lucide-react"
 import type { ProxyNode } from "@/lib/types"
 import {
@@ -22,6 +23,7 @@ import {
 interface NodeCardProps {
   node: ProxyNode
   onDelete?: (id: string) => void
+  onEdit?: (node: ProxyNode) => void
   connected?: boolean | null
   testPort?: number
   isTesting?: boolean
@@ -40,6 +42,7 @@ const typeColors: Record<string, string> = {
 export function NodeCard({
   node,
   onDelete,
+  onEdit,
   connected,
   testPort,
   isTesting = false,
@@ -138,6 +141,20 @@ export function NodeCard({
           ) : (
             <Wifi className="h-4 w-4" />
           )}
+        </Button>
+      )}
+
+      {onEdit && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-primary"
+          onClick={(e) => {
+            e.stopPropagation()
+            onEdit(node)
+          }}
+        >
+          <Pencil className="h-4 w-4" />
         </Button>
       )}
 

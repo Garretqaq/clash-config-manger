@@ -116,6 +116,18 @@ export default function NodesPage() {
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
+  const [isEditNodeOpen, setIsEditNodeOpen] = useState(false)
+  const [editingNode, setEditingNode] = useState<ProxyNode | null>(null)
+  const [editNode, setEditNode] = useState<NewNodeForm>({
+    name: "",
+    type: "vmess",
+    server: "",
+    port: "",
+    groupId: "",
+    params: {},
+  })
+  const [showEditAdvanced, setShowEditAdvanced] = useState(false)
+  const [showEditPreview, setShowEditPreview] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
@@ -164,15 +176,37 @@ export default function NodesPage() {
     ]
 
     Object.entries(params).forEach(([key, value]) => {
-      if (value && value.trim()) {
+      const strValue = String(value || "")
+      if (strValue.trim()) {
         // 布尔值保持原样，字符串加引号
-        const formattedValue = value.toLowerCase() === "true" || value.toLowerCase() === "false" ? value : `"${value}"`
+        const formattedValue = strValue.toLowerCase() === "true" || strValue.toLowerCase() === "false" ? strValue : `"${strValue}"`
         configLines.push(`  ${key}: ${formattedValue}`)
       }
     })
 
     return configLines.join("\n")
   }, [newNode])
+
+  // 编辑节点的 YAML 预览
+  const editYamlPreview = useMemo(() => {
+    const { name, type, server, port, params } = editNode
+    const configLines = [
+      `- name: ${name || "未命名节点"}`,
+      `  type: ${type}`,
+      `  server: ${server || "xxx.xxx.xxx.xxx"}`,
+      `  port: ${port || "0"}`,
+    ]
+
+    Object.entries(params).forEach(([key, value]) => {
+      const strValue = String(value || "")
+      if (strValue.trim()) {
+        const formattedValue = strValue.toLowerCase() === "true" || strValue.toLowerCase() === "false" ? strValue : `"${strValue}"`
+        configLines.push(`  ${key}: ${formattedValue}`)
+      }
+    })
+
+    return configLines.join("\n")
+  }, [editNode])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -252,11 +286,12 @@ export default function NodesPage() {
     // 构建配置对象
     const config: Record<string, unknown> = {}
     Object.entries(newNode.params).forEach(([key, value]) => {
-      if (value && value.trim()) {
+      const strValue = String(value || "")
+      if (strValue.trim()) {
         // 处理布尔值
-        if (value.toLowerCase() === "true") config[key] = true
-        else if (value.toLowerCase() === "false") config[key] = false
-        else config[key] = value
+        if (strValue.toLowerCase() === "true") config[key] = true
+        else if (strValue.toLowerCase() === "false") config[key] = false
+        else config[key] = strValue
       }
     })
 
@@ -285,6 +320,77 @@ export default function NodesPage() {
     } catch (error) {
       console.error("创建节点失败:", error)
       showToast({ title: "创建失败", variant: "destructive" })
+    }
+  }
+
+  const handleOpenEditNode = (node: ProxyNode) => {
+    setEditingNode(node)
+    setEditNode({
+      name: node.name,
+      type: node.type as ProxyType,
+      server: node.server,
+      port: String(node.port),
+      groupId: node.groupId || "",
+      params: node.config as Record<string, string> || {},
+    })
+    setShowEditAdvanced(false)
+    setShowEditPreview(false)
+    setIsEditNodeOpen(true)
+  }
+
+  const handleEditNode = async () => {
+    if (!editingNode || !editNode.name.trim() || !editNode.server.trim() || !editNode.port.trim()) {
+      showToast({ title: "请填写完整信息", variant: "destructive" })
+      return
+    }
+
+    const port = parseInt(editNode.port, 10)
+    if (isNaN(port) || port <= 0 || port > 65535) {
+      showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
+      return
+    }
+
+    // 构建配置对象
+    const config: Record<string, unknown> = {}
+    Object.entries(editNode.params).forEach(([key, value]) => {
+      const strValue = String(value || "")
+      if (strValue.trim()) {
+        if (strValue.toLowerCase() === "true") config[key] = true
+        else if (strValue.toLowerCase() === "false") config[key] = false
+        else config[key] = strValue
+      }
+    })
+
+    try {
+      const res = await fetch("/api/nodes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingNode.id,
+          name: editNode.name.trim(),
+          type: editNode.type,
+          server: editNode.server.trim(),
+          port,
+          groupId: editNode.groupId || null,
+          config,
+        }),
+      })
+
+      if (!res.ok) throw new Error("更新失败")
+
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === editingNode.id
+            ? { ...n, name: editNode.name, type: editNode.type, server: editNode.server, port, config }
+            : n
+        )
+      )
+      setIsEditNodeOpen(false)
+      setEditingNode(null)
+      showToast({ title: "更新成功", description: `节点 "${editNode.name}" 已更新`, variant: "success" })
+    } catch (error) {
+      console.error("更新节点失败:", error)
+      showToast({ title: "更新失败", variant: "destructive" })
     }
   }
 
@@ -383,11 +489,19 @@ export default function NodesPage() {
     }))
   }
 
+  const updateEditParam = (key: string, value: string) => {
+    setEditNode((prev) => ({
+      ...prev,
+      params: { ...prev.params, [key]: value },
+    }))
+  }
+
   const poolNodes = nodes.filter((n) => !n.groupId)
   const getGroupNodes = (groupId: string) =>
     nodes.filter((n) => n.groupId === groupId)
 
   const advancedParams = NODE_TYPE_PARAMS[newNode.type] || []
+  const editAdvancedParams = NODE_TYPE_PARAMS[editNode.type] || []
 
   if (loading) {
     return (
@@ -433,6 +547,7 @@ export default function NodesPage() {
         <NodePool
           nodes={poolNodes}
           onDeleteNode={handleDeleteNode}
+          onEditNode={handleOpenEditNode}
           onTestNodes={handleTestNodes}
           connections={connections}
           testingNodes={testingNodes}
@@ -446,6 +561,7 @@ export default function NodesPage() {
               nodes={getGroupNodes(group.id)}
               onDeleteGroup={handleDeleteGroup}
               onDeleteNode={handleDeleteNode}
+              onEditNode={handleOpenEditNode}
               onTestNodes={handleTestNodes}
               connections={connections}
               testingNodes={testingNodes}
@@ -634,6 +750,161 @@ export default function NodesPage() {
               取消
             </Button>
             <Button onClick={handleAddNode}>添加</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 编辑节点对话框 */}
+      <Dialog open={isEditNodeOpen} onOpenChange={(open) => {
+        setIsEditNodeOpen(open)
+        if (!open) {
+          setEditingNode(null)
+        }
+      }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>编辑节点</DialogTitle>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            {/* 基本信息 */}
+            <div className="space-y-3">
+              <Label className="text-sm font-semibold text-muted-foreground">基本信息</Label>
+              <div className="space-y-2">
+                <Label htmlFor="edit-node-name">节点名称</Label>
+                <Input
+                  id="edit-node-name"
+                  placeholder="例如: 日本东京节点"
+                  value={editNode.name}
+                  onChange={(e) => setEditNode((prev) => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-node-type">类型</Label>
+                  <Select
+                    value={editNode.type}
+                    onValueChange={(value) => setEditNode((prev) => ({ ...prev, type: value as ProxyType, params: {} }))}
+                  >
+                    <SelectTrigger id="edit-node-type">
+                      <SelectValue placeholder="选择类型" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {NODE_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-node-port">端口</Label>
+                  <Input
+                    id="edit-node-port"
+                    placeholder="443"
+                    value={editNode.port}
+                    onChange={(e) => setEditNode((prev) => ({ ...prev, port: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-node-server">服务器</Label>
+                  <Input
+                    id="edit-node-server"
+                    placeholder="jp.example.com"
+                    value={editNode.server}
+                    onChange={(e) => setEditNode((prev) => ({ ...prev, server: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-node-group">分配到分组（可选）</Label>
+                <Select
+                  value={editNode.groupId}
+                  onValueChange={(value) => setEditNode((prev) => ({ ...prev, groupId: value }))}
+                >
+                  <SelectTrigger id="edit-node-group">
+                    <SelectValue placeholder="节点池（不分配）" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">节点池（不分配）</SelectItem>
+                    {groups.map((group) => (
+                      <SelectItem key={group.id} value={group.id}>
+                        {group.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* 高级配置 */}
+            <div className="border-t pt-4">
+              <Button
+                variant="ghost"
+                className="w-full justify-between h-auto py-2"
+                onClick={() => setShowEditAdvanced(!showEditAdvanced)}
+              >
+                <span className="flex items-center gap-2">
+                  <Code className="h-4 w-4" />
+                  高级配置
+                </span>
+                {showEditAdvanced ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+
+              {showEditAdvanced && (
+                <div className="mt-3 space-y-3 p-4 bg-muted/50 rounded-lg">
+                  <Label className="text-xs text-muted-foreground">
+                    根据节点类型显示对应配置项，留空则不生成该字段
+                  </Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {editAdvancedParams.map((param) => (
+                      <div key={param.key} className="space-y-1">
+                        <Label htmlFor={`edit-param-${param.key}`} className="text-xs">
+                          {param.label}
+                        </Label>
+                        <Input
+                          id={`edit-param-${param.key}`}
+                          placeholder={param.placeholder || param.label}
+                          value={editNode.params[param.key] || ""}
+                          onChange={(e) => updateEditParam(param.key, e.target.value)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 预览 */}
+            <div className="border-t pt-4">
+              <Button
+                variant="ghost"
+                className="w-full justify-between h-auto py-2"
+                onClick={() => setShowEditPreview(!showEditPreview)}
+              >
+                <span className="flex items-center gap-2">
+                  <Eye className="h-4 w-4" />
+                  YAML 预览
+                </span>
+                {showEditPreview ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </Button>
+
+              {showEditPreview && (
+                <div className="mt-3 p-4 bg-zinc-950 rounded-lg overflow-x-auto">
+                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
+                    <code>{editYamlPreview}</code>
+                  </pre>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditNodeOpen(false)}>
+              取消
+            </Button>
+            <Button onClick={handleEditNode}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
