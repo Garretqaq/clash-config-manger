@@ -14,6 +14,8 @@ RUN npm ci
 
 # 生成 Prisma Client 阶段
 FROM base AS prisma
+# 安装必要的依赖
+RUN apk add --no-cache libc6-compat openssl openssl-dev
 WORKDIR /app
 # 从 deps 阶段复制 node_modules
 COPY --from=deps /app/node_modules ./node_modules
@@ -45,6 +47,9 @@ WORKDIR /app
 
 ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
+
+# 安装 OpenSSL 和必要的运行时依赖（Prisma 需要）
+RUN apk add --no-cache openssl libc6-compat
 
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs
