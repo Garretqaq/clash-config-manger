@@ -486,7 +486,7 @@ export default function NodesPage() {
   }
 
   const handleTestNodes = useCallback(async (nodeIds: string[]) => {
-    setTestingNodes((prev) => new Set([...prev, ...nodeIds]))
+    setTestingNodes((prev) => new Set(Array.from(prev).concat(nodeIds)))
 
     try {
       const res = await fetch("/api/nodes/test", {

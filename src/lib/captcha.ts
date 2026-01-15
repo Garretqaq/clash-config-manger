@@ -106,7 +106,7 @@ export function verifyCaptcha(captchaId: string, inputCode: string): boolean {
 // Clean up expired captchas
 function cleanupExpiredCaptchas(): void {
   const now = Date.now();
-  for (const [id, captcha] of captchaStore.entries()) {
+  for (const [id, captcha] of Array.from(captchaStore.entries())) {
     if (now > captcha.expiresAt) {
       captchaStore.delete(id);
     }

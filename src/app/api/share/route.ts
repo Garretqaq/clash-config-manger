@@ -215,37 +215,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: '删除分享链接失败' }, { status: 500 })
   }
 }
-
-// POST /api/share/batch-delete - Batch delete share links
-export async function batchDeleteShareLinks(request: NextRequest) {
-  try {
-    const body = await request.json()
-    const { shareIds } = body
-
-    if (!shareIds || !Array.isArray(shareIds) || shareIds.length === 0) {
-      return NextResponse.json({ error: '缺少分享 ID 列表' }, { status: 400 })
-    }
-
-    // Find share links by shareId
-    const shareLinks = await prisma.shareLink.findMany({
-      where: { shareId: { in: shareIds } },
-      select: { id: true },
-    })
-
-    const ids = shareLinks.map(link => link.id)
-
-    if (ids.length > 0) {
-      await prisma.shareLink.deleteMany({
-        where: { id: { in: ids } },
-      })
-    }
-
-    return NextResponse.json({
-      success: true,
-      deleted: ids.length,
-    })
-  } catch (error) {
-    console.error('Failed to batch delete share links:', error)
-    return NextResponse.json({ error: '批量删除分享链接失败' }, { status: 500 })
-  }
-}

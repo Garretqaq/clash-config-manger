@@ -87,7 +87,8 @@ export default function GeneratedConfigsPage() {
     }
   }
 
-  const formatDate = (date: string) => {
+  const formatDate = (date: Date | string | null | undefined) => {
+    if (!date) return '-'
     const d = new Date(date)
     const now = new Date()
     const diff = now.getTime() - d.getTime()

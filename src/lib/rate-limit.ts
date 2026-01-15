@@ -64,7 +64,7 @@ export const createLimiter = createRateLimiter({
 // Cleanup expired entries periodically
 setInterval(() => {
   const now = Date.now()
-  for (const [key, value] of cache.entries()) {
+  for (const [key, value] of Array.from(cache.entries())) {
     if (now > value.resetTime) {
       cache.delete(key)
     }
