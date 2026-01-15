@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { Poppins, Open_Sans } from "next/font/google"
+import { Poppins, Inter } from "next/font/google"
 import "./globals.css"
 import { ToastProvider } from "@/components/layout/ToastProvider"
 import { ConfirmProvider } from "@/components/layout/ConfirmProvider"
@@ -13,8 +13,7 @@ const poppins = Poppins({
   display: 'swap',
 })
 
-const openSans = Open_Sans({ 
-  weight: ['300', '400', '500', '600', '700'],
+const inter = Inter({ 
   subsets: ['latin'],
   variable: '--font-body',
   display: 'swap',
@@ -31,7 +30,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning className={`${poppins.variable} ${openSans.variable}`}>
+    <html lang="zh-CN" suppressHydrationWarning className={`${poppins.variable} ${inter.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -56,8 +55,9 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={openSans.className}>
+      <body className={`${inter.className} min-h-screen bg-background`}>
         <AuthProvider>
+          <div className="fixed inset-0 z-[-1] bg-dot-pattern opacity-50 pointer-events-none" />
           {children}
           <ToastProvider />
           <ConfirmProvider />

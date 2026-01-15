@@ -4,52 +4,73 @@
 
 @layer base {
   :root {
+    /* Zinc-like Base Palette */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
+
     --card: 0 0% 100%;
     --card-foreground: 240 10% 3.9%;
+
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+
+    /* Indigo Primary */
+    --primary: 226 70% 55.5%;
+    --primary-foreground: 0 0% 98%;
+
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
+
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
+
     --accent: 240 4.8% 95.9%;
     --accent-foreground: 240 5.9% 10%;
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
+
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
-    
-    /* Modern Professional font variables */
+    --ring: 226 70% 55.5%;
+
+    --radius: 0.75rem;
+
+    /* Fonts */
     --font-heading: 'Poppins', sans-serif;
-    --font-body: 'Open Sans', sans-serif;
+    --font-body: 'Inter', sans-serif;
   }
 
   .dark {
+    /* Zinc-like Dark Palette */
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 7%;
+
+    --card: 240 10% 3.9%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 7%;
+
+    --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
+
+    /* Indigo Primary - slightly lighter for dark mode visibility */
+    --primary: 226 70% 65%;
+    --primary-foreground: 0 0% 98%;
+
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
+
     --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
+
     --accent: 240 3.7% 15.9%;
     --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 50.6%;
+
+    --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
+
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
-    --ring: 217 91% 60%;
+    --ring: 226 70% 65%;
   }
 }
 
@@ -67,38 +88,43 @@
 }
 
 @layer utilities {
+  /* Subtle Background Pattern */
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: linear-gradient(to right, rgb(0 0 0 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(0 0 0 / 0.05) 1px, transparent 1px);
+  }
+  
+  .dark .bg-grid-pattern {
+    background-image: linear-gradient(to right, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(255 255 255 / 0.05) 1px, transparent 1px);
+  }
+
+  .bg-dot-pattern {
+    background-size: 24px 24px;
+    background-image: radial-gradient(rgb(0 0 0 / 0.1) 1px, transparent 1px);
+  }
+
+  .dark .bg-dot-pattern {
+    background-image: radial-gradient(rgb(255 255 255 / 0.1) 1px, transparent 1px);
+  }
+
   /* Glassmorphism utilities */
   .glass {
-    @apply backdrop-blur-xl bg-white/70 dark:bg-slate-900/70 border border-white/20 dark:border-slate-700/50;
+    @apply backdrop-blur-xl bg-white/70 dark:bg-zinc-900/70 border border-white/20 dark:border-zinc-700/50;
   }
   
   .glass-strong {
-    @apply backdrop-blur-2xl bg-white/80 dark:bg-slate-900/80 border border-white/30 dark:border-slate-700/60;
+    @apply backdrop-blur-2xl bg-white/80 dark:bg-zinc-900/80 border border-white/30 dark:border-zinc-700/60;
   }
   
-  /* Smooth animations with reduced motion support */
-  @media (prefers-reduced-motion: reduce) {
-    *,
-    *::before,
-    *::after {
-      animation-duration: 0.01ms !important;
-      animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-    }
+  /* Smooth animations */
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
   }
   
-  /* Custom animations */
-  @keyframes gradient-shift {
-    0%, 100% {
-      background-position: 0% 50%;
-    }
-    50% {
-      background-position: 100% 50%;
-    }
-  }
-  
-  .animate-gradient {
-    background-size: 200% 200%;
-    animation: gradient-shift 8s ease infinite;
+  .animate-fade-in {
+    animation: fade-in 0.4s ease-out forwards;
   }
 }

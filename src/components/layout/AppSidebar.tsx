@@ -13,11 +13,20 @@ import {
   Share2,
   LogOut,
   User,
+  ChevronRight,
 } from "lucide-react"
 import { ThemeToggle } from "./ThemeToggle"
 import { useAuth } from "@/contexts/AuthContext"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const menuItems = [
   {
@@ -55,8 +64,7 @@ const menuItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const router = useRouter()
-  const { isAuthenticated, user, isLoading, logout } = useAuth()
-  const [showUserMenu, setShowUserMenu] = useState(false)
+  const { isAuthenticated, user, logout } = useAuth()
 
   const handleLogout = async () => {
     await logout()
@@ -69,67 +77,100 @@ export function AppSidebar() {
   }
 
   return (
-    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card">
+    <aside className="fixed left-0 top-0 z-40 h-screen w-64 border-r bg-card/80 backdrop-blur-xl">
       <div className="flex h-full flex-col">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-2 border-b px-6">
-          <LayoutDashboard className="h-6 w-6 text-primary" />
-          <span className="font-heading text-lg font-semibold">
+        {/* Logo Section */}
+        <div className="flex h-16 items-center gap-3 border-b px-6">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <LayoutDashboard className="h-5 w-5" />
+          </div>
+          <span className="font-heading text-lg font-semibold tracking-tight text-foreground">
             Clash Manager
           </span>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
-          {menuItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors cursor-pointer",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.title}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
+          <div className="px-2 py-2">
+            <h4 className="mb-2 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+              Platform
+            </h4>
+            <div className="space-y-1">
+              {menuItems.map((item) => {
+                const isActive = pathname === item.href || pathname.startsWith(item.href + "/")
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={cn(
+                      "group flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200 ease-in-out",
+                      isActive
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <item.icon className={cn("h-4 w-4 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                      {item.title}
+                    </div>
+                    {isActive && (
+                      <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
         </nav>
 
-        {/* User Section */}
-        {isAuthenticated && user && (
-          <div className="border-t p-4">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+        {/* User Footer */}
+        <div className="border-t p-4">
+          <div className="flex items-center justify-between gap-2 rounded-xl border bg-background/50 p-2 shadow-sm">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
                 <User className="h-4 w-4 text-primary" />
               </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{user.username}</p>
+              <div className="flex flex-col overflow-hidden">
+                <span className="truncate text-sm font-medium text-foreground">
+                  {user?.username || 'User'}
+                </span>
+                <span className="truncate text-xs text-muted-foreground">
+                  Online
+                </span>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={handleLogout}
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              退出登录
-            </Button>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+                  <Settings2 className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="cursor-pointer">
+                  Profile
+                </DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer">
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  className="cursor-pointer text-destructive focus:text-destructive"
+                  onClick={handleLogout}
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        )}
-
-        {/* Footer */}
-        <div className="border-t p-4 flex items-center justify-between">
-          <p className="text-xs text-muted-foreground">
-            v1.0
-          </p>
-          <ThemeToggle />
+          
+          <div className="mt-4 flex items-center justify-between px-2">
+             <span className="text-xs text-muted-foreground font-mono opacity-50">v1.0.0</span>
+             <ThemeToggle />
+          </div>
         </div>
       </div>
     </aside>
