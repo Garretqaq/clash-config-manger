@@ -12,6 +12,8 @@ export async function middleware(request: NextRequest) {
     "/api/auth/captcha",
     "/api/auth/logout",
     "/api/auth/status",
+    "/share",
+    "/api/share/",
     "/_next",
     "/favicon.ico",
   ];
