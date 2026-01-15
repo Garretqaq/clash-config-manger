@@ -19,14 +19,6 @@ import { ThemeToggle } from "./ThemeToggle"
 import { useAuth } from "@/contexts/AuthContext"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 const menuItems = [
   {
@@ -140,31 +132,15 @@ export function AppSidebar() {
               </div>
             </div>
             
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
-                  <Settings2 className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer">
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem className="cursor-pointer">
-                  Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="cursor-pointer text-destructive focus:text-destructive"
-                  onClick={handleLogout}
-                >
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Log out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 hover:bg-muted"
+              onClick={handleLogout}
+              title="退出登录"
+            >
+              <LogOut className="h-4 w-4 text-muted-foreground" />
+            </Button>
           </div>
           
           <div className="mt-4 flex items-center justify-between px-2">
