@@ -21,6 +21,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 # 复制 Prisma schema 文件
 COPY prisma ./prisma
+# 设置占位符 DATABASE_URL（生成 Client 时只需要验证格式，不需要真实连接）
+ENV DATABASE_URL="mysql://placeholder:placeholder@localhost:3306/placeholder"
 # 生成 Prisma Client
 RUN npx prisma generate
 
