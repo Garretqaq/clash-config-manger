@@ -70,8 +70,14 @@ npm install
 创建 `.env` 文件并配置数据库连接：
 
 ```env
+# 基本连接（默认 UTC 时区）
 DATABASE_URL="mysql://root:password@localhost:3306/clash_config"
+
+# 使用上海时区（推荐）
+DATABASE_URL="mysql://root:password@localhost:3306/clash_config?timezone=Asia%2FShanghai"
 ```
+
+> **注意**：`timezone` 参数会影响数据库存储的 `createdAt` 和 `updatedAt` 时间。使用 `Asia%2FShanghai` 将以北京时间存储。
 
 ### 3. 初始化数据库
 

@@ -30,6 +30,7 @@ import {
   FileText,
 } from "lucide-react"
 import type { Subscription } from "@/lib/types"
+import { formatDate } from "@/lib/utils"
 
 interface SubscriptionGroup {
   id: string
@@ -246,7 +247,7 @@ export default function SubscriptionsPage() {
 
                 {sub.lastSyncAt && (
                   <div className="text-xs text-muted-foreground">
-                    上次同步: {new Date(sub.lastSyncAt).toLocaleString("zh-CN")}
+                    上次同步: {formatDate(sub.lastSyncAt)}
                   </div>
                 )}
 

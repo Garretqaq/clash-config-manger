@@ -27,6 +27,7 @@ import { showToast } from "@/components/ui/toast"
 import { showConfirm } from "@/components/ui/confirm-dialog"
 import { ShareDialog } from "@/components/share/ShareDialog"
 import type { Config } from "@/lib/types"
+import { formatDate } from "@/lib/utils"
 
 export default function GeneratedConfigsPage() {
   const router = useRouter()

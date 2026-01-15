@@ -18,6 +18,7 @@ import { Trash2, Copy, Search, Loader2 } from "lucide-react"
 import { showToast } from "@/components/ui/toast"
 import { showConfirm } from "@/components/ui/confirm-dialog"
 import type { ShareLink } from "@/lib/types"
+import { formatDate } from "@/lib/utils"
 
 interface ShareLinkWithStatus extends ShareLink {
   status: "active" | "expired"
@@ -145,9 +146,9 @@ export default function SharesPage() {
     showToast({ title: "已复制到剪贴板", variant: "success" })
   }
 
-  const formatDate = (date: string | null | undefined) => {
+  const formatExpiryDate = (date: string | null | undefined) => {
     if (!date) return "永久有效"
-    return new Date(date).toLocaleString("zh-CN")
+    return formatDate(date)
   }
 
   return (
@@ -238,7 +239,7 @@ export default function SharesPage() {
                           {link.isDynamic ? "动态" : "静态"}
                         </Badge>
                       </td>
-                      <td className="p-4 text-sm">{formatDate(link.expiresAt)}</td>
+                      <td className="p-4 text-sm">{formatExpiryDate(link.expiresAt)}</td>
                       <td className="p-4 text-sm">{link.views}</td>
                       <td className="p-4">
                         <Badge variant={link.status === "active" ? "default" : "secondary"}>
@@ -246,7 +247,7 @@ export default function SharesPage() {
                         </Badge>
                       </td>
                       <td className="p-4 text-sm text-muted-foreground">
-                        {new Date(link.createdAt).toLocaleString("zh-CN")}
+                        {formatDate(link.createdAt)}
                       </td>
                       <td className="p-4 text-right">
                         <div className="flex items-center justify-end gap-2">
