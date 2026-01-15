@@ -22,6 +22,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Clash Config Manager",
   description: "管理和生成 Clash 配置文件",
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 }
 
 export default function RootLayout({
