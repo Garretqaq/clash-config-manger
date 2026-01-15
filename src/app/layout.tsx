@@ -1,8 +1,24 @@
 import type { Metadata } from "next"
+import { Poppins, Open_Sans } from "next/font/google"
 import "./globals.css"
-import { AppSidebar } from "@/components/layout/AppSidebar"
 import { ToastProvider } from "@/components/layout/ToastProvider"
 import { ConfirmProvider } from "@/components/layout/ConfirmProvider"
+import { AuthProvider } from "@/contexts/AuthContext"
+
+// Modern Professional font pairing
+const poppins = Poppins({ 
+  weight: ['400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-heading',
+  display: 'swap',
+})
+
+const openSans = Open_Sans({ 
+  weight: ['300', '400', '500', '600', '700'],
+  subsets: ['latin'],
+  variable: '--font-body',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
   title: "Clash Config Manager",
@@ -15,7 +31,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="zh-CN" suppressHydrationWarning>
+    <html lang="zh-CN" suppressHydrationWarning className={`${poppins.variable} ${openSans.variable}`}>
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -40,15 +56,12 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body>
-        <div className="flex min-h-screen">
-          <AppSidebar />
-          <main className="flex-1 ml-64 p-8">
-            {children}
-          </main>
-        </div>
-        <ToastProvider />
-        <ConfirmProvider />
+      <body className={openSans.className}>
+        <AuthProvider>
+          {children}
+          <ToastProvider />
+          <ConfirmProvider />
+        </AuthProvider>
       </body>
     </html>
   )

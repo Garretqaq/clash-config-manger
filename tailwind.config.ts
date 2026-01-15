@@ -10,8 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        heading: ['Space Grotesk', 'sans-serif'],
-        body: ['DM Sans', 'sans-serif'],
+        heading: ['var(--font-heading)', 'Poppins', 'sans-serif'],
+        body: ['var(--font-body)', 'Open Sans', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -52,6 +52,23 @@ const config: Config = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+      },
+      animation: {
+        'in': 'in 200ms ease-out',
+        'gradient': 'gradient-shift 8s ease infinite',
+      },
+      keyframes: {
+        in: {
+          '0%': { opacity: '0', transform: 'translateY(-10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'gradient-shift': {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+      },
+      backgroundSize: {
+        '200': '200% 200%',
       },
     },
   },
