@@ -1,0 +1,75 @@
+# 使用官方 Node.js 运行时作为基础镜像
+FROM node:20-alpine AS base
+
+# 安装依赖阶段
+FROM base AS deps
+# 安装 libc6-compat 以支持某些 npm 包
+RUN apk add --no-cache libc6-compat openssl
+WORKDIR /app
+
+# 复制 package.json 和 package-lock.json
+COPY package.json package-lock.json* ./
+# 安装依赖
+RUN npm ci
+
+# 生成 Prisma Client 阶段
+FROM base AS prisma
+WORKDIR /app
+# 从 deps 阶段复制 node_modules
+COPY --from=deps /app/node_modules ./node_modules
+# 复制 Prisma schema 文件
+COPY prisma ./prisma
+# 生成 Prisma Client
+RUN npx prisma generate
+
+# 构建阶段
+FROM base AS builder
+WORKDIR /app
+# 从 deps 阶段复制 node_modules
+COPY --from=deps /app/node_modules ./node_modules
+# 从 prisma 阶段复制生成的 Prisma Client
+COPY --from=prisma /app/node_modules/.prisma ./node_modules/.prisma
+# 复制源代码
+COPY . .
+
+# 设置环境变量
+ENV NEXT_TELEMETRY_DISABLED 1
+ENV NODE_ENV production
+
+# 构建 Next.js 应用
+RUN npm run build
+
+# 生产运行阶段
+FROM base AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+# 创建非 root 用户
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+# 复制必要的文件
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+# 复制 Prisma schema 和生成的 Client（运行时可能需要）
+COPY --from=prisma /app/prisma ./prisma
+COPY --from=prisma /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=prisma /app/node_modules/@prisma ./node_modules/@prisma
+
+# 设置正确的权限
+RUN chown -R nextjs:nodejs /app
+
+# 切换到非 root 用户
+USER nextjs
+
+# 暴露端口
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+# 启动应用
+CMD ["node", "server.js"]

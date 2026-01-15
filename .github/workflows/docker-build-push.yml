@@ -1,0 +1,118 @@
+name: docker-build-push
+
+on:
+  push:
+    branches:
+      # 监听推送到 master 分支
+      - "master"
+      # 也可以监听 main 分支
+      - "main"
+    # 监听以 v 开头的标签
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    # 使用最新的 Ubuntu 环境
+    runs-on: ubuntu-latest
+
+    env:
+      # 默认为阿里云容器镜像服务，如果使用其他 Docker 注册表，可以修改
+      REGISTRY: 'registry.cn-hangzhou.aliyuncs.com'
+      # 使用镜像名称，格式为 <命名空间>/<仓库名>
+      # 请根据实际情况修改命名空间和仓库名
+      IMAGE_NAME: registry.cn-hangzhou.aliyuncs.com/dato/clash-config-manage
+
+    steps:
+      # 检出代码
+      - name: Checkout code
+        # 检出代码，默认会检出整个仓库
+        uses: actions/checkout@v3
+
+      # 设置 Node.js
+      - name: Set up Node.js
+        # 设置 Node.js 版本
+        uses: actions/setup-node@v3
+        with:
+          # Node.js 版本，可以根据项目需要调整
+          node-version: '20'
+          # 启用 npm 缓存，提升构建速度
+          cache: 'npm'
+
+      # 安装依赖
+      - name: Install dependencies
+        # 安装项目依赖
+        run: npm ci
+
+      # 生成 Prisma Client
+      - name: Generate Prisma Client
+        # 生成 Prisma Client，构建时需要
+        run: npx prisma generate
+
+      # 构建 Next.js 项目
+      - name: Build Next.js application
+        # 构建 Next.js 项目
+        run: npm run build
+        env:
+          # 构建时可能需要设置环境变量
+          NODE_ENV: production
+          # 如果构建时需要数据库连接，可以在这里设置（但通常不需要）
+          # DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      # 登录到阿里云容器镜像服务
+      - name: Log in to Aliyun Container Registry
+        # 使用 Docker 登录动作
+        uses: docker/login-action@v2
+        with:
+          # 使用阿里云容器镜像服务
+          registry: ${{ env.REGISTRY }}
+          # 从 GitHub Secrets 获取 Docker 用户名
+          username: ${{ secrets.DOCKER_USERNAME }}
+          # 从 GitHub Secrets 获取 Docker 密码
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 提取 Docker 元数据（标签和标签）
+      - name: Extract Docker metadata
+        id: meta
+        # 使用 Docker metadata-action 提取元数据
+        uses: docker/metadata-action@v4
+        with:
+          # 使用定义的镜像名称
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            # 设置最新标签
+            type=raw,value=latest,enable={{is_default_branch}}
+            # 设置基于标签的标签（如 v1.0.0）
+            type=ref,enable=true,priority=600,prefix=,suffix=,event=tag
+            # 设置基于分支的标签
+            type=ref,enable=true,priority=500,prefix=,suffix=,event=branch
+            # 设置基于 SHA 的标签
+            type=sha,enable=true,prefix=,format=short
+
+      # 构建并推送 Docker 镜像
+      - name: Build and push Docker image
+        # 使用 Docker build-push-action 来构建和推送镜像
+        uses: docker/build-push-action@v4
+        with:
+          # Docker 构建上下文为当前目录
+          context: .
+          # Dockerfile 路径
+          file: ./Dockerfile
+          push: true
+          # 使用提取的标签推送镜像
+          tags: ${{ steps.meta.outputs.tags }}
+          # 使用提取的标签作为镜像元数据
+          labels: ${{ steps.meta.outputs.labels }}
+          # 构建参数
+          build-args: |
+            NODE_ENV=production
+
+      # 调用部署 Webhook
+      - name: Trigger Deployment Webhook
+        # 调用部署 webhook，URL 从 GitHub Secrets 获取
+        # 如果不需要部署 webhook，可以删除此步骤或不配置 DEPLOY_WEBHOOK_URL secret
+        if: ${{ secrets.DEPLOY_WEBHOOK_URL != '' }}
+        run: |
+          curl -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -f || exit 1
