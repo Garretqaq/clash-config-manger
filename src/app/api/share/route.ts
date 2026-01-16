@@ -139,7 +139,10 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+      // 动态获取当前域名
+      const protocol = request.headers.get('x-forwarded-proto') || 'http'
+      const host = request.headers.get('host') || 'localhost:3000'
+      const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`
       const shareUrl = `${baseUrl}/api/share/${shareId}?token=${accessToken}`
 
       return NextResponse.json({
@@ -171,7 +174,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const baseUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    // 动态获取当前域名
+    const protocol = request.headers.get('x-forwarded-proto') || 'http'
+    const host = request.headers.get('host') || 'localhost:3000'
+    const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`
     const shareUrl = `${baseUrl}/api/share/${shareId}?token=${accessToken}`
 
     return NextResponse.json({
