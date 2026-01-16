@@ -155,6 +155,7 @@ export default function NodesPage() {
       ])
       const nodesData = await nodesRes.json()
       const groupsData = await groupsRes.json()
+
       setNodes(nodesData)
       setGroups(groupsData)
     } catch (error) {
@@ -700,8 +701,8 @@ export default function NodesPage() {
     }))
   }
 
-  // 节点池显示所有节点
-  const poolNodes = nodes
+  // 节点池只显示未分组的节点
+  const poolNodes = nodes.filter((n) => !n.groupId)
   // 组显示通过 groupNodeMapping 记录的节点
   const getGroupNodes = (groupId: string) =>
     nodes.filter((n) => groupNodeMapping[groupId]?.has(n.id))
