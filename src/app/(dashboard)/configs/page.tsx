@@ -318,6 +318,18 @@ export default function ConfigsPage() {
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
 
+  // 定义 selectTemplate 函数（需要放在 fetchData 之前）
+  const selectTemplate = useCallback((template: Template) => {
+    setSelectedTemplate(template)
+    // 解析模板中的分组
+    const groupNames = extractGroupNames(template.content)
+    const mapping: Record<string, ProxyNode[]> = {}
+    groupNames.forEach((name) => {
+      mapping[name] = []
+    })
+    setNodeMapping(mapping)
+  }, [])
+
   const fetchData = useCallback(async () => {
     try {
       const [nodesRes, templatesRes, groupsRes] = await Promise.all([
@@ -333,12 +345,19 @@ export default function ConfigsPage() {
       setNodes(nodesData)
       setGroups(groupsData)
       setTemplates(templatesData)
+
+      // 首次进入时自动选中默认模板或第一个模板
+      if (templatesData && templatesData.length > 0) {
+        const defaultTemplate = templatesData.find((t: Template) => t.isDefault)
+        const templateToSelect = defaultTemplate || templatesData[0]
+        selectTemplate(templateToSelect)
+      }
     } catch (error) {
       console.error("获取数据失败:", error)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [selectTemplate])
 
   useEffect(() => {
     fetchData()
@@ -370,17 +389,6 @@ export default function ConfigsPage() {
 
     setPreviewContent(preview)
   }, [nodeMapping, selectedTemplate])
-
-  const selectTemplate = (template: Template) => {
-    setSelectedTemplate(template)
-    // 解析模板中的分组
-    const groupNames = extractGroupNames(template.content)
-    const mapping: Record<string, ProxyNode[]> = {}
-    groupNames.forEach((name) => {
-      mapping[name] = []
-    })
-    setNodeMapping(mapping)
-  }
 
   const extractGroupNames = (content: string): string[] => {
     const groups: string[] = []
