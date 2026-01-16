@@ -287,7 +287,7 @@ export default function NodesPage() {
       return
     }
 
-    // 使用前端状态管理,不调用 API
+    // 更新前端状态并保存到数据库
     if (newGroupId === null) {
       // 拖拽到节点池:从所有组中移除
       setGroupNodeMapping((prev) => {
@@ -298,6 +298,24 @@ export default function NodesPage() {
         })
         return updated
       })
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === nodeId ? { ...n, groupId: null } : n
+        )
+      )
+      // 调用 API 保存到数据库
+      try {
+        await fetch('/api/nodes', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nodeIds: [nodeId],
+            groupId: null,
+          }),
+        })
+      } catch (error) {
+        console.error('保存分组更改失败:', error)
+      }
     } else {
       // 拖拽到组:添加到组中
       setGroupNodeMapping((prev) => {
@@ -309,6 +327,24 @@ export default function NodesPage() {
         updated[newGroupId].add(nodeId)
         return updated
       })
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === nodeId ? { ...n, groupId: newGroupId } : n
+        )
+      )
+      // 调用 API 保存到数据库
+      try {
+        await fetch('/api/nodes', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nodeIds: [nodeId],
+            groupId: newGroupId,
+          }),
+        })
+      } catch (error) {
+        console.error('保存分组更改失败:', error)
+      }
     }
   }
 
