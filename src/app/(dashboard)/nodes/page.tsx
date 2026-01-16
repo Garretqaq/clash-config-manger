@@ -114,6 +114,7 @@ export default function NodesPage() {
   const [nodes, setNodes] = useState<ProxyNode[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
+  const [groupNodeMapping, setGroupNodeMapping] = useState<Record<string, Set<string>>>({})
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false)
   const [isEditNodeOpen, setIsEditNodeOpen] = useState(false)
@@ -166,6 +167,20 @@ export default function NodesPage() {
   useEffect(() => {
     fetchData()
   }, [fetchData])
+
+  // 初始化 groupNodeMapping,从现有节点的 groupId 构建映射
+  useEffect(() => {
+    const mapping: Record<string, Set<string>> = {}
+    nodes.forEach((node) => {
+      if (node.groupId) {
+        if (!mapping[node.groupId]) {
+          mapping[node.groupId] = new Set()
+        }
+        mapping[node.groupId].add(node.id)
+      }
+    })
+    setGroupNodeMapping(mapping)
+  }, [nodes])
 
   // 生成 YAML 预览
   const yamlPreview = useMemo(() => {
@@ -271,21 +286,28 @@ export default function NodesPage() {
       return
     }
 
-    setNodes((prev) =>
-      prev.map((n) =>
-        n.id === nodeId ? { ...n, groupId: newGroupId } : n
-      )
-    )
-
-    try {
-      await fetch("/api/nodes", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodeIds: [nodeId], groupId: newGroupId }),
+    // 使用前端状态管理,不调用 API
+    if (newGroupId === null) {
+      // 拖拽到节点池:从所有组中移除
+      setGroupNodeMapping((prev) => {
+        const updated = { ...prev }
+        Object.keys(updated).forEach((groupId) => {
+          updated[groupId] = new Set(updated[groupId])
+          updated[groupId].delete(nodeId)
+        })
+        return updated
       })
-    } catch (error) {
-      console.error("更新节点分组失败:", error)
-      fetchData()
+    } else {
+      // 拖拽到组:添加到组中
+      setGroupNodeMapping((prev) => {
+        const updated = { ...prev }
+        if (!updated[newGroupId]) {
+          updated[newGroupId] = new Set()
+        }
+        updated[newGroupId] = new Set(updated[newGroupId])
+        updated[newGroupId].add(nodeId)
+        return updated
+      })
     }
   }
 
@@ -351,6 +373,18 @@ export default function NodesPage() {
 
       const node = await res.json()
       setNodes((prev) => [node, ...prev])
+      // 如果指定了分组,同步更新 groupNodeMapping
+      if (newNode.groupId) {
+        setGroupNodeMapping((prev) => {
+          const updated = { ...prev }
+          if (!updated[newNode.groupId]) {
+            updated[newNode.groupId] = new Set()
+          }
+          updated[newNode.groupId] = new Set(updated[newNode.groupId])
+          updated[newNode.groupId].add(node.id)
+          return updated
+        })
+      }
       setNewNode({ name: "", type: "vmess", server: "", port: "", groupId: "", params: {} })
       setShowAdvanced(false)
       setIsAddNodeOpen(false)
@@ -451,18 +485,46 @@ export default function NodesPage() {
       setNodes((prev) =>
         prev.map((n) =>
           n.id === editingNode.id
-            ? { 
-                ...n, 
-                name: editNode.name, 
-                type: editNode.type, 
-                server: editNode.server, 
-                port, 
+            ? {
+                ...n,
+                name: editNode.name,
+                type: editNode.type,
+                server: editNode.server,
+                port,
                 config,
                 groupId: editNode.groupId || null  // 修复：同步更新 groupId
               }
             : n
         )
       )
+
+      // 同步更新 groupNodeMapping
+      const oldGroupId = editingNode.groupId
+      const newGroupId = editNode.groupId || null
+
+      if (oldGroupId !== newGroupId) {
+        setGroupNodeMapping((prev) => {
+          const updated = { ...prev }
+
+          // 从旧组中移除
+          if (oldGroupId) {
+            updated[oldGroupId] = new Set(updated[oldGroupId])
+            updated[oldGroupId].delete(editingNode.id)
+          }
+
+          // 添加到新组
+          if (newGroupId) {
+            if (!updated[newGroupId]) {
+              updated[newGroupId] = new Set()
+            }
+            updated[newGroupId] = new Set(updated[newGroupId])
+            updated[newGroupId].add(editingNode.id)
+          }
+
+          return updated
+        })
+      }
+
       setIsEditNodeOpen(false)
       setEditingNode(null)
       showToast({ title: "更新成功", description: `节点 "${editNode.name}" 已更新`, variant: "success" })
@@ -483,9 +545,12 @@ export default function NodesPage() {
     try {
       await fetch(`/api/groups?id=${id}`, { method: "DELETE" })
       setGroups((prev) => prev.filter((g) => g.id !== id))
-      setNodes((prev) =>
-        prev.map((n) => (n.groupId === id ? { ...n, groupId: null } : n))
-      )
+      // 从 groupNodeMapping 中移除该组的记录
+      setGroupNodeMapping((prev) => {
+        const updated = { ...prev }
+        delete updated[id]
+        return updated
+      })
       showToast({ title: "已删除", variant: "success" })
     } catch (error) {
       console.error("删除分组失败:", error)
@@ -511,6 +576,17 @@ export default function NodesPage() {
           body: JSON.stringify({ ids: idsToDelete }),
         })
         setNodes((prev) => prev.filter((n) => !selectedNodes.has(n.id)))
+        // 从 groupNodeMapping 中移除所有相关记录
+        setGroupNodeMapping((prev) => {
+          const updated = { ...prev }
+          Object.keys(updated).forEach((groupId) => {
+            updated[groupId] = new Set(updated[groupId])
+            idsToDelete.forEach((nodeId) => {
+              updated[groupId].delete(nodeId)
+            })
+          })
+          return updated
+        })
         setSelectedNodes(new Set())
         showToast({ title: "已删除", description: `成功删除 ${idsToDelete.length} 个节点`, variant: "success" })
       } catch (error) {
@@ -531,6 +607,15 @@ export default function NodesPage() {
     try {
       await fetch(`/api/nodes?ids=${id}`, { method: "DELETE" })
       setNodes((prev) => prev.filter((n) => n.id !== id))
+      // 从 groupNodeMapping 中移除该节点的所有记录
+      setGroupNodeMapping((prev) => {
+        const updated = { ...prev }
+        Object.keys(updated).forEach((groupId) => {
+          updated[groupId] = new Set(updated[groupId])
+          updated[groupId].delete(id)
+        })
+        return updated
+      })
       setSelectedNodes((prev) => {
         const next = new Set(prev)
         next.delete(id)
@@ -615,9 +700,11 @@ export default function NodesPage() {
     }))
   }
 
-  const poolNodes = nodes.filter((n) => !n.groupId)
+  // 节点池显示所有节点
+  const poolNodes = nodes
+  // 组显示通过 groupNodeMapping 记录的节点
   const getGroupNodes = (groupId: string) =>
-    nodes.filter((n) => n.groupId === groupId)
+    nodes.filter((n) => groupNodeMapping[groupId]?.has(n.id))
 
   const advancedParams = NODE_TYPE_PARAMS[newNode.type] || []
   const editAdvancedParams = NODE_TYPE_PARAMS[editNode.type] || []
