@@ -312,44 +312,31 @@ export default function EditConfigPage() {
       setNodes(allNodes)
       setTemplates(templatesData)
 
-      // 解析 nodeMapping 并转换为节点对象数组
-      const mapping: Record<string, ProxyNode[]> = {}
-      for (const [groupName, nodeIds] of Object.entries(config.nodeMapping as Record<string, string[]>)) {
-        const validNodes = nodeIds
-          .map((id) => allNodes.find((n: ProxyNode) => n.id === id))
-          .filter((n): n is ProxyNode => n !== undefined)
-        if (validNodes.length > 0) {
-          mapping[groupName] = validNodes
-        }
-      }
+      // 从配置文件内容中解析分组名称
+      const groupNames = extractGroupNames(config.content)
 
-      // 设置模板
+      // 初始化 nodeMapping,保留现有映射,添加配置文件中存在但映射中不存在的分组
+      const mapping: Record<string, ProxyNode[]> = {}
+      groupNames.forEach((name: string) => {
+        if (config.nodeMapping[name]) {
+          // 从 nodeMapping 中恢复节点
+          const validNodes = (config.nodeMapping[name] as string[])
+            .map((id) => allNodes.find((n: ProxyNode) => n.id === id))
+            .filter((n): n is ProxyNode => n !== undefined)
+          mapping[name] = validNodes
+        } else {
+          // 配置文件中存在但映射中没有,初始化为空
+          mapping[name] = []
+        }
+      })
+
+      // 设置模板(只用于显示,不用于分组解析)
       const template = templatesData.find((t: Template) => t.id === config.templateId)
       if (template) {
         setSelectedTemplate(template)
-
-        // 检查 mapping 中的分组是否与模板一致
-        const templateGroupNames = extractGroupNames(template.content)
-        const validMapping: Record<string, ProxyNode[]> = {}
-
-        // 只保留模板中存在的分组
-        templateGroupNames.forEach((name: string) => {
-          if (mapping[name]) {
-            validMapping[name] = mapping[name]
-          } else {
-            validMapping[name] = []
-          }
-        })
-
-        // 添加模板中不存在的额外分组（保留用户自定义分组）
-        Object.keys(mapping).forEach((key) => {
-          if (!validMapping[key]) {
-            validMapping[key] = mapping[key]
-          }
-        })
-
-        setNodeMapping(validMapping)
       }
+
+      setNodeMapping(mapping)
     } catch (error) {
       console.error("加载配置失败:", error)
       showToast({ title: "加载失败", description: "无法加载配置数据", variant: "destructive" })
@@ -370,7 +357,9 @@ export default function EditConfigPage() {
 
   // 实时更新预览
   useEffect(() => {
-    if (!selectedTemplate || !selectedTemplate.content) return
+    // 优先使用配置文件内容,如果没有则使用模板
+    const templateContent = configData?.content || selectedTemplate?.content
+    if (!templateContent) return
 
     // 收集所有已选择的节点
     const allSelectedNodes = Object.values(nodeMapping).flat()
@@ -386,14 +375,14 @@ export default function EditConfigPage() {
 
     // 生成预览
     const preview = ClashGenerator.generate({
-      template: selectedTemplate.content,
+      template: templateContent,
       proxies: proxyConfigs,
       nodeMapping: nodeMappingNames,
       removeUnusedGroups: true,
     })
 
     setPreviewContent(preview)
-  }, [nodeMapping, selectedTemplate])
+  }, [nodeMapping, selectedTemplate, configData])
 
   const extractGroupNames = (content: string): string[] => {
     const groups: string[] = []
@@ -509,7 +498,15 @@ export default function EditConfigPage() {
   }
 
   const handleSaveConfig = async () => {
-    if (!configName.trim() || !selectedTemplate) return
+    if (!configName.trim()) return
+
+    // 如果是编辑已有配置,使用原有的 templateId(向后兼容)
+    // 如果没有 templateId,则使用当前选中的模板
+    const templateId = configData?.templateId || selectedTemplate?.id
+    if (!templateId) {
+      showToast({ title: "保存失败", description: "无法确定模板信息", variant: "destructive" })
+      return
+    }
 
     const nodeMappingIds: Record<string, string[]> = {}
     for (const [groupName, groupNodes] of Object.entries(nodeMapping)) {
@@ -523,7 +520,7 @@ export default function EditConfigPage() {
         body: JSON.stringify({
           id: configId,
           name: configName,
-          templateId: selectedTemplate.id,
+          templateId: templateId,
           nodeMapping: nodeMappingIds,
         }),
       })
@@ -616,7 +613,7 @@ export default function EditConfigPage() {
             <ArrowLeft className="h-4 w-4 mr-2" />
             取消
           </Button>
-          <Button onClick={() => setIsSaveOpen(true)} disabled={!selectedTemplate}>
+          <Button onClick={() => setIsSaveOpen(true)} disabled={!configData}>
             <Save className="h-4 w-4 mr-2" />
             保存
           </Button>
