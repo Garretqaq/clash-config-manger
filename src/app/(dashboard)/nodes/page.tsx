@@ -191,6 +191,8 @@ export default function NodesPage() {
 
   // 编辑节点的 YAML 预览
   const editYamlPreview = useMemo(() => {
+    if (!editingNode) return ""
+
     const { name, type, server, port, params } = editNode
     const configLines = [
       `- name: ${name || "未命名节点"}`,
@@ -199,16 +201,50 @@ export default function NodesPage() {
       `  port: ${port || "0"}`,
     ]
 
+    // 从原始节点获取完整配置
+    const originalConfig = (editingNode.config as Record<string, unknown>) || {}
+    const previewConfig: Record<string, unknown> = { ...originalConfig }
+
+    // 应用用户的编辑
     Object.entries(params).forEach(([key, value]) => {
       const strValue = String(value || "")
-      if (strValue.trim()) {
-        const formattedValue = strValue.toLowerCase() === "true" || strValue.toLowerCase() === "false" ? strValue : `"${strValue}"`
+      const originalValue = originalConfig[key]
+
+      if (!strValue.trim()) {
+        delete previewConfig[key]
+      } else if (Array.isArray(originalValue)) {
+        // 保留数组结构
+        previewConfig[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
+      } else if (strValue.toLowerCase() === "true") {
+        previewConfig[key] = true
+      } else if (strValue.toLowerCase() === "false") {
+        previewConfig[key] = false
+      } else {
+        previewConfig[key] = strValue
+      }
+    })
+
+    // 格式化配置为 YAML
+    Object.entries(previewConfig).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        // 数组格式
+        configLines.push(`  ${key}:`)
+        value.forEach(item => {
+          configLines.push(`  - ${item}`)
+        })
+      } else if (typeof value === 'boolean') {
+        configLines.push(`  ${key}: ${value}`)
+      } else if (typeof value === 'object' && value !== null) {
+        // 对象格式
+        configLines.push(`  ${key}: ${JSON.stringify(value)}`)
+      } else {
+        const formattedValue = typeof value === 'string' ? `${value}` : value
         configLines.push(`  ${key}: ${formattedValue}`)
       }
     })
 
     return configLines.join("\n")
-  }, [editNode])
+  }, [editNode, editingNode])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -327,13 +363,29 @@ export default function NodesPage() {
 
   const handleOpenEditNode = (node: ProxyNode) => {
     setEditingNode(node)
+    // 将原始 config 转换为字符串形式以便在输入框中编辑
+    // 但保留原始 config 以便在提交时合并回去
+    const configForEdit: Record<string, string> = {}
+    if (node.config) {
+      Object.entries(node.config as Record<string, unknown>).forEach(([key, value]) => {
+        // 将数组转换为逗号分隔的字符串以便编辑
+        if (Array.isArray(value)) {
+          configForEdit[key] = value.join(', ')
+        } else if (typeof value === 'object' && value !== null) {
+          // 对于对象,先不处理,保留原样
+          configForEdit[key] = JSON.stringify(value)
+        } else {
+          configForEdit[key] = String(value)
+        }
+      })
+    }
     setEditNode({
       name: node.name,
       type: node.type as ProxyType,
       server: node.server,
       port: String(node.port),
       groupId: node.groupId || "",
-      params: node.config as Record<string, string> || {},
+      params: configForEdit,
     })
     setShowEditAdvanced(false)
     setShowEditPreview(false)
@@ -352,14 +404,29 @@ export default function NodesPage() {
       return
     }
 
-    // 构建配置对象
-    const config: Record<string, unknown> = {}
+    // 从原始节点保留完整的 config,然后只更新用户修改的字段
+    const originalConfig = (editingNode.config as Record<string, unknown>) || {}
+    const config: Record<string, unknown> = { ...originalConfig }
+
+    // 处理用户在表单中修改的参数
     Object.entries(editNode.params).forEach(([key, value]) => {
       const strValue = String(value || "")
-      if (strValue.trim()) {
-        if (strValue.toLowerCase() === "true") config[key] = true
-        else if (strValue.toLowerCase() === "false") config[key] = false
-        else config[key] = strValue
+
+      // 如果原始配置中该字段是数组,需要保持数组结构
+      const originalValue = originalConfig[key]
+
+      if (!strValue.trim()) {
+        // 如果用户清空了字段,从 config 中删除
+        delete config[key]
+      } else if (Array.isArray(originalValue)) {
+        // 保留数组结构,将逗号分隔的字符串转回数组
+        config[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
+      } else if (strValue.toLowerCase() === "true") {
+        config[key] = true
+      } else if (strValue.toLowerCase() === "false") {
+        config[key] = false
+      } else {
+        config[key] = strValue
       }
     })
 
