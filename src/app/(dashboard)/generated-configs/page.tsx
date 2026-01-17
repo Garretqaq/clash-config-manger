@@ -35,6 +35,7 @@ export default function GeneratedConfigsPage() {
   const [loading, setLoading] = useState(true)
   const [previewConfig, setPreviewConfig] = useState<Config | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [previewCopied, setPreviewCopied] = useState(false)
   const [shareConfig, setShareConfig] = useState<{ id: string; name: string; content: string } | null>(null)
 
   const fetchConfigs = useCallback(async () => {
@@ -70,6 +71,15 @@ export default function GeneratedConfigsPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const handlePreviewCopy = async () => {
+    if (previewConfig?.content) {
+      await navigator.clipboard.writeText(previewConfig.content)
+      setPreviewCopied(true)
+      showToast({ title: "已复制", description: "配置内容已复制到剪贴板", variant: "success" })
+      setTimeout(() => setPreviewCopied(false), 2000)
+    }
+  }
+
   const handleDelete = async (id: string) => {
     const confirmed = await showConfirm({
       title: "删除配置",
@@ -91,14 +101,20 @@ export default function GeneratedConfigsPage() {
   const formatDate = (date: Date | string | null | undefined) => {
     if (!date) return '-'
     const d = new Date(date)
-    const now = new Date()
-    const diff = now.getTime() - d.getTime()
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    // 提取日期部分（YYYY-MM-DD），避免时区转换问题
+    const dateStr = d.toISOString().split('T')[0]
+    const todayStr = new Date().toISOString().split('T')[0]
+
+    const dTime = new Date(dateStr).getTime()
+    const todayTime = new Date(todayStr).getTime()
+    const days = Math.floor((todayTime - dTime) / (1000 * 60 * 60 * 24))
 
     if (days === 0) return "今天"
     if (days === 1) return "昨天"
-    if (days < 7) return `${days}天前`
-    return d.toLocaleDateString("zh-CN")
+    if (days === -1) return "明天"
+    if (days > 0 && days < 7) return `${days}天前`
+    if (days < 0 && days > -7) return `${Math.abs(days)}天后`
+    return dateStr
   }
 
   if (loading) {
@@ -213,7 +229,21 @@ export default function GeneratedConfigsPage() {
       <Dialog open={!!previewConfig} onOpenChange={() => setPreviewConfig(null)}>
         <DialogContent className="max-w-4xl max-h-[80vh]">
           <DialogHeader>
-            <DialogTitle>{previewConfig?.name}</DialogTitle>
+            <div className="flex items-center justify-between pr-8">
+              <DialogTitle>{previewConfig?.name}</DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviewCopy}
+              >
+                {previewCopied ? (
+                  <Check className="h-4 w-4 mr-1 text-green-500" />
+                ) : (
+                  <Copy className="h-4 w-4 mr-1" />
+                )}
+                复制
+              </Button>
+            </div>
           </DialogHeader>
           <ScrollArea className="h-[60vh] rounded-lg border">
             <pre className="p-4 text-sm font-mono whitespace-pre-wrap">
