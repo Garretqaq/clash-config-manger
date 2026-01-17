@@ -22,14 +22,14 @@ import { Button } from "@/components/ui/button"
 
 const menuItems = [
   {
-    title: "节点管理",
-    href: "/nodes",
-    icon: Network,
-  },
-  {
     title: "订阅管理",
     href: "/subscriptions",
     icon: Rss,
+  },
+  {
+    title: "节点管理",
+    href: "/nodes",
+    icon: Network,
   },
   {
     title: "模板管理",
