@@ -50,8 +50,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '模板不存在' }, { status: 404 })
     }
 
-    // 获取所有选中的节点
-    const allNodeIds = Object.values(nodeMapping as Record<string, string[]>).flat()
+    // 获取所有选中的节点 (过滤出纯节点ID,排除分组引用)
+    const allNodeIds = Object.values(nodeMapping as Record<string, Array<string | { type: 'group'; name: string }>>)
+      .flat()
+      .filter((item): item is string => typeof item === 'string')
+
     const nodes = await prisma.proxyNode.findMany({
       where: {
         id: { in: allNodeIds },
@@ -69,11 +72,19 @@ export async function POST(request: NextRequest) {
       }))
     )
 
-    // 构建节点名称映射
+    // 构建节点名称映射 (处理节点ID和分组引用)
     const nodeNameMapping: Record<string, string[]> = {}
-    for (const [groupName, nodeIds] of Object.entries(nodeMapping as Record<string, string[]>)) {
-      nodeNameMapping[groupName] = nodeIds
-        .map((id) => nodes.find((n) => n.id === id)?.name)
+    for (const [groupName, items] of Object.entries(nodeMapping as Record<string, Array<string | { type: 'group'; name: string }>>)) {
+      nodeNameMapping[groupName] = items
+        .map((item) => {
+          if (typeof item === 'string') {
+            // 节点ID - 查找节点名称
+            return nodes.find((n) => n.id === item)?.name
+          } else {
+            // 分组引用 - 直接使用分组名称
+            return item.name
+          }
+        })
         .filter(Boolean) as string[]
     }
 
@@ -129,8 +140,11 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: '模板不存在' }, { status: 404 })
     }
 
-    // 获取所有选中的节点
-    const allNodeIds = Object.values(nodeMapping as Record<string, string[]>).flat()
+    // 获取所有选中的节点 (过滤出纯节点ID,排除分组引用)
+    const allNodeIds = Object.values(nodeMapping as Record<string, Array<string | { type: 'group'; name: string }>>)
+      .flat()
+      .filter((item): item is string => typeof item === 'string')
+
     const nodes = await prisma.proxyNode.findMany({
       where: {
         id: { in: allNodeIds },
@@ -148,11 +162,19 @@ export async function PUT(request: NextRequest) {
       }))
     )
 
-    // 构建节点名称映射
+    // 构建节点名称映射 (处理节点ID和分组引用)
     const nodeNameMapping: Record<string, string[]> = {}
-    for (const [groupName, nodeIds] of Object.entries(nodeMapping as Record<string, string[]>)) {
-      nodeNameMapping[groupName] = nodeIds
-        .map((nid) => nodes.find((n) => n.id === nid)?.name)
+    for (const [groupName, items] of Object.entries(nodeMapping as Record<string, Array<string | { type: 'group'; name: string }>>)) {
+      nodeNameMapping[groupName] = items
+        .map((item) => {
+          if (typeof item === 'string') {
+            // 节点ID - 查找节点名称
+            return nodes.find((n) => n.id === item)?.name
+          } else {
+            // 分组引用 - 直接使用分组名称
+            return item.name
+          }
+        })
         .filter(Boolean) as string[]
     }
 

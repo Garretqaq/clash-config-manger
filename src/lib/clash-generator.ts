@@ -4,7 +4,7 @@ import type { ClashConfig, ClashProxyConfig, ClashProxyGroup } from './types'
 interface GenerateOptions {
   template: string
   proxies: ClashProxyConfig[]
-  nodeMapping: Record<string, string[]> // groupName -> nodeNames
+  nodeMapping: Record<string, string[]> // groupName -> (nodeNames | groupNames)
   removeUnusedGroups?: boolean // 是否移除不在 nodeMapping 中的分组
 }
 

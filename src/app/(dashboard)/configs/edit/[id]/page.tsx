@@ -46,11 +46,12 @@ import {
   Plus,
   Loader2,
   ArrowLeft,
+  FolderTree,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClashGenerator } from "@/lib/clash-generator"
 import { showToast } from "@/components/ui/toast"
-import type { ProxyNode, Template, Group, Config } from "@/lib/types"
+import type { ProxyNode, Template, Group, Config, NodeMappingValue } from "@/lib/types"
 
 // 可拖拽的节点卡片
 function DraggablePoolNode({ node }: { node: ProxyNode }) {
@@ -180,36 +181,120 @@ function SortableGroupNode({
   )
 }
 
-// 可放置的分组区域
-function DroppableGroup({
+// 嵌套分组项
+function NestedGroupItem({
   groupName,
   nodes,
-  onRemoveNode,
-  onRemoveGroup,
+  onRemove,
 }: {
   groupName: string
   nodes: ProxyNode[]
+  onRemove: () => void
+}) {
+  const [isExpanded, setIsExpanded] = useState(false)
+
+  return (
+    <div className="border-l-4 border-l-yellow-500 bg-yellow-50/50 dark:bg-yellow-900/10 rounded-md p-3 mb-2">
+      <div className="flex items-center gap-2">
+        <GripVertical className="h-3 w-3 text-muted-foreground" />
+        <span className="text-muted-foreground text-sm">└─</span>
+        <FolderTree className="h-3 w-3 text-yellow-600 dark:text-yellow-500" />
+        <span className="text-sm font-medium flex-1">{groupName}</span>
+        <Badge variant="outline" className="text-xs">
+          {nodes.length} 节点
+        </Badge>
+        <button
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="text-muted-foreground hover:text-foreground p-1"
+          title={isExpanded ? "折叠" : "展开"}
+        >
+          {isExpanded ? (
+            <ChevronDown className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </button>
+        <button
+          onClick={onRemove}
+          className="text-muted-foreground hover:text-destructive cursor-pointer p-1"
+          title="移除引用"
+        >
+          <Trash2 className="h-3 w-3" />
+        </button>
+      </div>
+
+      {isExpanded && nodes.length > 0 && (
+        <div className="mt-2 ml-6 space-y-1 p-2 bg-muted/30 rounded border">
+          {nodes.map((node) => (
+            <div key={node.id} className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="text-xs">•</span>
+              <Server className="h-3 w-3" />
+              <span className="truncate">{node.name}</span>
+              <Badge variant="outline" className="text-[10px] px-1">
+                {node.type}
+              </Badge>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 可拖拽和可放置的分组卡片
+function DraggableGroupCard({
+  groupName,
+  nodes,
+  nestedGroups,
+  onRemoveNode,
+  onRemoveGroup,
+  onRemoveNestedGroup,
+  allNodeMapping,
+}: {
+  groupName: string
+  nodes: ProxyNode[]
+  nestedGroups: Array<{ name: string; nodes: ProxyNode[] }>
   onRemoveNode: (nodeId: string) => void
   onRemoveGroup: () => void
+  onRemoveNestedGroup: (nestedGroupName: string) => void
+  allNodeMapping: Record<string, NodeMappingValue[]>
 }) {
-  const { setNodeRef, isOver } = useDroppable({
+  // 拖拽源
+  const { attributes: dragAttributes, listeners: dragListeners, setNodeRef: setDragRef, isDragging } = useDraggable({
+    id: `group-card-${groupName}`,
+    data: { isGroupCard: true, groupName },
+  })
+
+  // 放置目标
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `config-group-${groupName}`,
     data: { groupName },
   })
 
   return (
     <div
-      ref={setNodeRef}
+      ref={setDropRef}
       className={cn(
         "rounded-lg border p-4 transition-all min-h-[120px]",
-        isOver && "ring-2 ring-primary border-primary bg-primary/5"
+        isOver && "ring-2 ring-primary border-primary bg-primary/5",
+        isDragging && "opacity-50"
       )}
     >
       <div className="flex items-center gap-2 mb-3">
+        <div
+          ref={setDragRef}
+          {...dragAttributes}
+          {...dragListeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground p-1"
+          title="拖拽分组"
+        >
+          <GripVertical className="h-4 w-4" />
+        </div>
         <Folder className="h-4 w-4 text-primary" />
         <h4 className="font-medium">{groupName}</h4>
         <Badge variant="outline" className="ml-auto">
-          {nodes.length}
+          {nestedGroups.length > 0 && `${nestedGroups.length} 组 + `}
+          {nodes.length} 节点
         </Badge>
         <button
           onClick={onRemoveGroup}
@@ -219,14 +304,30 @@ function DroppableGroup({
           <Trash2 className="h-3 w-3" />
         </button>
       </div>
+
+      {/* 嵌套分组区域 */}
+      {nestedGroups.length > 0 && (
+        <div className="mb-3">
+          {nestedGroups.map((nestedGroup) => (
+            <NestedGroupItem
+              key={nestedGroup.name}
+              groupName={nestedGroup.name}
+              nodes={nestedGroup.nodes}
+              onRemove={() => onRemoveNestedGroup(nestedGroup.name)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 普通节点区域 */}
       <SortableContext
         items={nodes.map((n) => `sort-${groupName}-${n.id}`)}
         strategy={verticalListSortingStrategy}
       >
         <div className="space-y-2">
-          {nodes.length === 0 ? (
+          {nodes.length === 0 && nestedGroups.length === 0 ? (
             <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
-              拖拽节点到此处
+              拖拽节点或分组到此处
             </div>
           ) : (
             nodes.map((node) => (
@@ -256,7 +357,7 @@ export default function EditConfigPage() {
   const [isLoadingConfig, setIsLoadingConfig] = useState(false)
   const [configData, setConfigData] = useState<Config | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [nodeMapping, setNodeMapping] = useState<Record<string, ProxyNode[]>>({})
+  const [nodeMapping, setNodeMapping] = useState<Record<string, NodeMappingValue[]>>({})
   const [configName, setConfigName] = useState("")
   const [previewContent, setPreviewContent] = useState("")
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
@@ -316,14 +417,31 @@ export default function EditConfigPage() {
       const groupNames = extractGroupNames(config.content)
 
       // 初始化 nodeMapping,保留现有映射,添加配置文件中存在但映射中不存在的分组
-      const mapping: Record<string, ProxyNode[]> = {}
+      const mapping: Record<string, NodeMappingValue[]> = {}
       groupNames.forEach((name: string) => {
         if (config.nodeMapping[name]) {
-          // 从 nodeMapping 中恢复节点
-          const validNodes = (config.nodeMapping[name] as string[])
-            .map((id) => allNodes.find((n: ProxyNode) => n.id === id))
-            .filter((n): n is ProxyNode => n !== undefined)
-          mapping[name] = validNodes
+          const items = config.nodeMapping[name] as Array<string | { type: 'group'; name: string }>
+
+          // 转换每个项:节点ID或分组引用
+          const validItems = items.map(item => {
+            if (typeof item === 'object' && item.type === 'group') {
+              // 分组引用,直接保留
+              return { type: 'group' as const, name: item.name }
+            } else {
+              // 节点ID,查找节点对象
+              const nodeId = item as string
+              const node = allNodes.find((n: ProxyNode) => n.id === nodeId)
+              return node
+            }
+          }).filter((item): item is NodeMappingValue => {
+            // 过滤掉不存在的节点(保留分组引用和有效节点)
+            if (!item) return false
+            if (typeof item === 'object' && 'type' in item && item.type === 'group') return true
+            if (typeof item === 'object' && 'id' in item) return true
+            return false
+          })
+
+          mapping[name] = validItems
         } else {
           // 配置文件中存在但映射中没有,初始化为空
           mapping[name] = []
@@ -361,16 +479,27 @@ export default function EditConfigPage() {
     const templateContent = configData?.content || selectedTemplate?.content
     if (!templateContent) return
 
-    // 收集所有已选择的节点
-    const allSelectedNodes = Object.values(nodeMapping).flat()
+    // 收集所有已选择的节点(只包含ProxyNode,不包含分组引用)
+    const allSelectedNodes = Object.values(nodeMapping)
+      .flat()
+      .filter((item): item is ProxyNode => typeof item === 'object' && 'id' in item)
 
     // 生成节点配置
     const proxyConfigs = ClashGenerator.generateProxies(allSelectedNodes)
 
-    // 生成节点名称映射
+    // 生成节点名称和分组名称的混合映射
     const nodeMappingNames: Record<string, string[]> = {}
-    for (const [groupName, groupNodes] of Object.entries(nodeMapping)) {
-      nodeMappingNames[groupName] = groupNodes.map((n) => n.name)
+    for (const [groupName, items] of Object.entries(nodeMapping)) {
+      nodeMappingNames[groupName] = items.map(item => {
+        if (typeof item === 'object' && 'type' in item && item.type === 'group') {
+          // 分组引用:使用分组名称
+          return item.name
+        } else if (typeof item === 'object' && 'name' in item) {
+          // ProxyNode:使用节点名称
+          return item.name
+        }
+        return ''
+      }).filter(Boolean)
     }
 
     // 生成预览
@@ -420,27 +549,95 @@ export default function EditConfigPage() {
 
     if (!over) return
 
-    const activeData = active.data.current as { node?: ProxyNode; groupName?: string }
+    const activeData = active.data.current as {
+      node?: ProxyNode
+      groupName?: string
+      isGroupCard?: boolean
+    }
     const overData = over.data.current as { node?: ProxyNode; groupName?: string }
 
-    // 分组内排序
+    // 场景1: 拖拽分组卡片到另一个分组
+    if (activeData?.isGroupCard && activeData.groupName && overData?.groupName) {
+      const draggedGroup = activeData.groupName
+      const targetGroup = overData.groupName
+
+      // 约束检查1: 不能拖入自身
+      if (draggedGroup === targetGroup) {
+        showToast({ title: "无法操作", description: "分组不能嵌套自己", variant: "destructive" })
+        return
+      }
+
+      // 约束检查2: 检查目标分组是否已经包含拖拽分组
+      const targetMapping = nodeMapping[targetGroup] || []
+      const hasNestedDraggedGroup = targetMapping.some(
+        item => typeof item === 'object' && 'type' in item && item.type === 'group' && item.name === draggedGroup
+      )
+      if (hasNestedDraggedGroup) {
+        showToast({ title: "无法操作", description: "该分组已经在目标分组中", variant: "destructive" })
+        return
+      }
+
+      // 约束检查3: 检查是否会造成循环引用(一层嵌套下,只需检查目标是否嵌套在拖拽分组中)
+      const draggedMapping = nodeMapping[draggedGroup] || []
+      const hasTargetAsNested = draggedMapping.some(
+        item => typeof item === 'object' && 'type' in item && item.type === 'group' && item.name === targetGroup
+      )
+      if (hasTargetAsNested) {
+        showToast({
+          title: "无法操作",
+          description: `${targetGroup} 已嵌套在 ${draggedGroup} 中,无法反向嵌套`,
+          variant: "destructive"
+        })
+        return
+      }
+
+      // 添加分组引用(排在嵌套分组末尾,节点之前)
+      setNodeMapping(prev => {
+        const currentItems = prev[targetGroup] || []
+        // 分离分组引用和节点
+        const groups = currentItems.filter(item => typeof item === 'object' && 'type' in item && item.type === 'group')
+        const nodes = currentItems.filter(item => typeof item === 'object' && 'id' in item)
+
+        return {
+          ...prev,
+          [targetGroup]: [
+            ...groups,
+            { type: 'group' as const, name: draggedGroup },
+            ...nodes,
+          ],
+        }
+      })
+
+      showToast({
+        title: "添加成功",
+        description: `已将 ${draggedGroup} 嵌套到 ${targetGroup}`,
+        variant: "success"
+      })
+      return
+    }
+
+    // 场景2: 分组内排序
     if (activeData?.node && activeData?.groupName && overData?.groupName) {
       const activeGroup = activeData.groupName
       const overGroup = overData.groupName
 
       if (activeGroup === overGroup) {
         // 同组排序
-        const nodes = [...(nodeMapping[activeGroup] || [])]
-        const oldIndex = nodes.findIndex((n) => n.id === activeData.node?.id)
+        const items = [...(nodeMapping[activeGroup] || [])]
+        const oldIndex = items.findIndex((item) =>
+          typeof item === 'object' && 'id' in item && item.id === activeData.node?.id
+        )
         const overNode = overData.node
 
         if (overNode) {
-          const newIndex = nodes.findIndex((n) => n.id === overNode.id)
+          const newIndex = items.findIndex((item) =>
+            typeof item === 'object' && 'id' in item && item.id === overNode.id
+          )
           if (oldIndex !== -1 && newIndex !== -1) {
-            const newNodes = arrayMove(nodes, oldIndex, newIndex)
+            const newItems = arrayMove(items, oldIndex, newIndex)
             setNodeMapping((prev) => ({
               ...prev,
-              [activeGroup]: newNodes,
+              [activeGroup]: newItems,
             }))
           }
         }
@@ -448,13 +645,13 @@ export default function EditConfigPage() {
       }
     }
 
-    // 从节点池拖入分组
+    // 场景3: 从节点池拖入分组
     if (activeData?.node && overData?.groupName) {
       const node = activeData.node
       const groupName = overData.groupName
 
       // 检查是否已存在
-      if (nodeMapping[groupName]?.some((n) => n.id === node.id)) {
+      if (nodeMapping[groupName]?.some((item) => typeof item === 'object' && 'id' in item && item.id === node.id)) {
         return
       }
 
@@ -468,15 +665,64 @@ export default function EditConfigPage() {
   const handleRemoveNode = (groupName: string, nodeId: string) => {
     setNodeMapping((prev) => ({
       ...prev,
-      [groupName]: prev[groupName]?.filter((n) => n.id !== nodeId) || [],
+      [groupName]: prev[groupName]?.filter((item) =>
+        !(typeof item === 'object' && 'id' in item && item.id === nodeId)
+      ) || [],
     }))
   }
 
+  // 检查分组引用关系
+  const checkGroupReferences = useCallback((groupName: string): string[] => {
+    const referencedBy: string[] = []
+
+    for (const [parentGroup, items] of Object.entries(nodeMapping)) {
+      const hasReference = items.some(
+        item => typeof item === 'object' && 'type' in item && item.type === 'group' && item.name === groupName
+      )
+      if (hasReference) {
+        referencedBy.push(parentGroup)
+      }
+    }
+
+    return referencedBy
+  }, [nodeMapping])
+
   const handleRemoveGroup = (groupName: string) => {
+    // 检查是否被引用
+    const references = checkGroupReferences(groupName)
+
+    if (references.length > 0) {
+      showToast({
+        title: "无法删除",
+        description: `该分组被以下分组引用: ${references.join(', ')}。请先移除引用关系。`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // 未被引用,可以删除
     setNodeMapping((prev) => {
       const newMapping = { ...prev }
       delete newMapping[groupName]
       return newMapping
+    })
+
+    showToast({ title: "删除成功", description: `分组 ${groupName} 已删除`, variant: "success" })
+  }
+
+  // 移除嵌套分组引用
+  const handleRemoveNestedGroup = (parentGroup: string, nestedGroupName: string) => {
+    setNodeMapping(prev => ({
+      ...prev,
+      [parentGroup]: prev[parentGroup].filter(
+        item => !(typeof item === 'object' && 'type' in item && item.type === 'group' && item.name === nestedGroupName)
+      ),
+    }))
+
+    showToast({
+      title: "移除成功",
+      description: `已从 ${parentGroup} 中移除 ${nestedGroupName}`,
+      variant: "success"
     })
   }
 
@@ -508,9 +754,19 @@ export default function EditConfigPage() {
       return
     }
 
-    const nodeMappingIds: Record<string, string[]> = {}
-    for (const [groupName, groupNodes] of Object.entries(nodeMapping)) {
-      nodeMappingIds[groupName] = groupNodes.map((n) => n.id)
+    // 转换为保存格式:NodeMappingItem[]
+    const nodeMappingIds: Record<string, Array<string | { type: 'group'; name: string }>> = {}
+    for (const [groupName, items] of Object.entries(nodeMapping)) {
+      nodeMappingIds[groupName] = items.map(item => {
+        if (typeof item === 'object' && 'type' in item && item.type === 'group') {
+          // 分组引用,直接保留
+          return { type: 'group' as const, name: item.name }
+        } else if (typeof item === 'object' && 'id' in item) {
+          // ProxyNode 对象,提取 ID
+          return item.id
+        }
+        return ''
+      }).filter(Boolean) as Array<string | { type: 'group'; name: string }>
     }
 
     try {
@@ -543,6 +799,7 @@ export default function EditConfigPage() {
   const usedNodeIds = new Set(
     Object.values(nodeMapping)
       .flat()
+      .filter((item): item is ProxyNode => typeof item === 'object' && 'id' in item)
       .map((n) => n.id)
   )
   const availableNodes = nodes.filter((n) => !usedNodeIds.has(n.id))
@@ -681,15 +938,37 @@ export default function EditConfigPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {Object.keys(nodeMapping).map((groupName) => (
-                    <DroppableGroup
-                      key={groupName}
-                      groupName={groupName}
-                      nodes={nodeMapping[groupName] || []}
-                      onRemoveNode={(nodeId) => handleRemoveNode(groupName, nodeId)}
-                      onRemoveGroup={() => handleRemoveGroup(groupName)}
-                    />
-                  ))}
+                  {Object.keys(nodeMapping).map((groupName) => {
+                    const items = nodeMapping[groupName] || []
+                    // 分离嵌套分组和普通节点
+                    const nestedGroups = items
+                      .filter((item): item is { type: 'group'; name: string } =>
+                        typeof item === 'object' && 'type' in item && item.type === 'group'
+                      )
+                      .map(groupRef => ({
+                        name: groupRef.name,
+                        nodes: nodeMapping[groupRef.name]?.filter(
+                          (item): item is ProxyNode => typeof item === 'object' && 'id' in item
+                        ) || []
+                      }))
+
+                    const nodes = items.filter((item): item is ProxyNode =>
+                      typeof item === 'object' && 'id' in item
+                    )
+
+                    return (
+                      <DraggableGroupCard
+                        key={groupName}
+                        groupName={groupName}
+                        nodes={nodes}
+                        nestedGroups={nestedGroups}
+                        onRemoveNode={(nodeId) => handleRemoveNode(groupName, nodeId)}
+                        onRemoveGroup={() => handleRemoveGroup(groupName)}
+                        onRemoveNestedGroup={(nestedGroupName) => handleRemoveNestedGroup(groupName, nestedGroupName)}
+                        allNodeMapping={nodeMapping}
+                      />
+                    )
+                  })}
                 </div>
                 <Button
                   variant="outline"

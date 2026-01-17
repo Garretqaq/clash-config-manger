@@ -65,11 +65,21 @@ export interface Subscription {
   updatedAt: Date
 }
 
+// 节点映射项:可以是节点ID或分组引用
+export type NodeMappingItem =
+  | string                           // 节点ID
+  | { type: 'group'; name: string }  // 分组引用
+
+// 前端状态管理使用的增强类型
+export type NodeMappingValue =
+  | ProxyNode                        // 普通节点
+  | { type: 'group'; name: string }  // 分组引用
+
 export interface Config {
   id: string
   name: string
   templateId: string
-  nodeMapping: Record<string, string[]>
+  nodeMapping: Record<string, NodeMappingItem[]>  // 支持混合节点ID和分组引用
   content: string
   createdAt: Date
   updatedAt: Date

@@ -1,27 +1,16 @@
 "use client"
 
 import { useState, useEffect, useCallback, useMemo } from "react"
-import { useRouter } from "next/navigation"
 import {
   DndContext,
   DragOverlay,
   DragStartEvent,
-  DragEndEvent,
-  useDroppable,
-  useDraggable,
   closestCenter,
   KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core"
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-  arrayMove,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,281 +24,35 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog"
-import {
-  Save,
-  Server,
-  Folder,
-  ChevronDown,
-  ChevronRight,
-  GripVertical,
-  Trash2,
-  Plus,
-  Loader2,
-} from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Save, Server, Plus } from "lucide-react"
 import { ClashGenerator } from "@/lib/clash-generator"
 import { showToast } from "@/components/ui/toast"
-import type { ProxyNode, Template, Group } from "@/lib/types"
+import type { ProxyNode, Template, Group, NodeMappingValue } from "@/lib/types"
 
-// 可拖拽的节点卡片
-function DraggablePoolNode({ node }: { node: ProxyNode }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `node-${node.id}`,
-    data: { node },
-  })
-
-  const style = {
-    transform: CSS.Translate.toString(transform),
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={cn(
-        "flex items-center gap-2 px-3 py-1.5 rounded hover:bg-accent text-sm cursor-grab active:cursor-grabbing transition-all",
-        isDragging && "opacity-50 shadow-lg bg-accent"
-      )}
-    >
-      <GripVertical className="h-3 w-3 text-muted-foreground" />
-      <Server className="h-3 w-3 text-muted-foreground" />
-      <span className="truncate flex-1">{node.name}</span>
-      <Badge variant="outline" className="text-[10px] px-1">
-        {node.type}
-      </Badge>
-    </div>
-  )
-}
-
-// 节点池分组（可折叠）
-function NodePoolGroup({
-  groupName,
-  nodes,
-  groupColor = "border-l-primary",
-}: {
-  groupName: string
-  nodes: ProxyNode[]
-  groupColor?: string
-}) {
-  const [isExpanded, setIsExpanded] = useState(true)
-
-  if (nodes.length === 0) return null
-
-  return (
-    <div className={cn("border rounded-lg overflow-hidden", groupColor)}>
-      <button
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 bg-muted/50 hover:bg-muted transition-colors text-left"
-      >
-        {isExpanded ? (
-          <ChevronDown className="h-4 w-4 text-muted-foreground" />
-        ) : (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
-        )}
-        <span className="font-medium text-sm flex-1">{groupName}</span>
-        <Badge variant="secondary" className="text-xs">
-          {nodes.length}
-        </Badge>
-      </button>
-      {isExpanded && (
-        <div className="p-2 space-y-1">
-          {nodes.map((node) => (
-            <DraggablePoolNode key={node.id} node={node} />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// 可放置的节点池（支持拖回节点）
-function DroppableNodePool({
-  poolGroupList,
-}: {
-  poolGroupList: { id: string; name: string; nodes: ProxyNode[] }[]
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: "config-node-pool",
-    data: { isPool: true },
-  })
-
-  return (
-    <Card 
-      ref={setNodeRef}
-      className={cn(
-        "h-fit max-h-[calc(100vh-200px)] transition-all",
-        isOver && "ring-2 ring-primary border-primary bg-primary/5"
-      )}
-    >
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base">
-          节点池
-          {isOver && <span className="text-xs text-primary ml-2">(松开以放回)</span>}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-[calc(100vh-280px)] pr-4">
-          <div className="space-y-2">
-            {poolGroupList.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                暂无可用节点
-              </p>
-            ) : (
-              poolGroupList.map((group, index) => (
-                <NodePoolGroup
-                  key={group.id}
-                  groupName={group.name}
-                  nodes={group.nodes}
-                  groupColor={
-                    group.id === "ungrouped"
-                      ? "border-l-muted"
-                      : index === 1
-                      ? "border-l-primary"
-                      : index === 2
-                      ? "border-l-blue-500"
-                      : "border-l-purple-500"
-                  }
-                />
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
-  )
-}
-
-// 可排序的分组节点（支持拖回节点池）
-function SortableGroupNode({
-  node,
-  groupName,
-  onRemove,
-}: {
-  node: ProxyNode
-  groupName: string
-  onRemove: (nodeId: string) => void
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: `sort-${groupName}-${node.id}`,
-    data: { node, groupName, fromGroup: true }, // 标记来自分组，支持拖回节点池
-  })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={cn(
-        "flex items-center gap-2 px-3 py-2 rounded-md bg-muted/50 transition-colors",
-        isDragging && "opacity-50 shadow-lg bg-primary/10"
-      )}
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground"
-      >
-        <GripVertical className="h-3 w-3" />
-      </button>
-      <Server className="h-3 w-3 text-muted-foreground" />
-      <span className="text-sm truncate flex-1">{node.name}</span>
-      <button
-        onClick={() => onRemove(node.id)}
-        className="text-muted-foreground hover:text-destructive cursor-pointer"
-      >
-        <Trash2 className="h-3 w-3" />
-      </button>
-    </div>
-  )
-}
-
-// 可放置的分组区域
-function DroppableGroup({
-  groupName,
-  nodes,
-  onRemoveNode,
-  onRemoveGroup,
-}: {
-  groupName: string
-  nodes: ProxyNode[]
-  onRemoveNode: (nodeId: string) => void
-  onRemoveGroup: () => void
-}) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `config-group-${groupName}`,
-    data: { groupName },
-  })
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "rounded-lg border p-4 transition-all min-h-[120px]",
-        isOver && "ring-2 ring-primary border-primary bg-primary/5"
-      )}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <Folder className="h-4 w-4 text-primary" />
-        <h4 className="font-medium">{groupName}</h4>
-        <Badge variant="outline" className="ml-auto">
-          {nodes.length}
-        </Badge>
-        <button
-          onClick={onRemoveGroup}
-          className="text-muted-foreground hover:text-destructive cursor-pointer p-1 rounded hover:bg-destructive/10"
-          title="删除分组"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
-      </div>
-      <SortableContext
-        items={nodes.map((n) => `sort-${groupName}-${n.id}`)}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="space-y-2">
-          {nodes.length === 0 ? (
-            <div className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
-              拖拽节点到此处
-            </div>
-          ) : (
-            nodes.map((node) => (
-              <SortableGroupNode
-                key={node.id}
-                node={node}
-                groupName={groupName}
-                onRemove={onRemoveNode}
-              />
-            ))
-          )}
-        </div>
-      </SortableContext>
-    </div>
-  )
-}
+// 导入共享组件和工具
+import {
+  DroppableNodePool,
+  DraggableGroupCard,
+} from "@/components/config/shared-components"
+import {
+  extractGroupNames,
+  createHandleDragEnd,
+  createHandleRemoveNode,
+  createHandleRemoveGroup,
+  createHandleRemoveNestedGroup,
+  separateNestedGroupsAndNodes,
+  convertToSaveFormat,
+  generateNodeMappingNames,
+} from "@/components/config/shared-utils"
 
 export default function ConfigsPage() {
-  const router = useRouter()
-
   const [nodes, setNodes] = useState<ProxyNode[]>([])
   const [groups, setGroups] = useState<Group[]>([])
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
 
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
-  const [nodeMapping, setNodeMapping] = useState<Record<string, ProxyNode[]>>({})
+  const [nodeMapping, setNodeMapping] = useState<Record<string, NodeMappingValue[]>>({})
   const [configName, setConfigName] = useState("")
   const [previewContent, setPreviewContent] = useState("")
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
@@ -323,7 +66,7 @@ export default function ConfigsPage() {
     setSelectedTemplate(template)
     // 解析模板中的分组
     const groupNames = extractGroupNames(template.content)
-    const mapping: Record<string, ProxyNode[]> = {}
+    const mapping: Record<string, NodeMappingValue[]> = {}
     groupNames.forEach((name) => {
       mapping[name] = []
     })
@@ -367,17 +110,18 @@ export default function ConfigsPage() {
   useEffect(() => {
     if (!selectedTemplate || !selectedTemplate.content) return
 
-    // 收集所有已选择的节点
-    const allSelectedNodes = Object.values(nodeMapping).flat()
+    // 收集所有已选择的节点（仅ProxyNode，不包括分组引用）
+    const allSelectedNodes = Object.values(nodeMapping)
+      .flat()
+      .filter((item): item is ProxyNode =>
+        typeof item === 'object' && 'id' in item
+      )
 
     // 生成节点配置
     const proxyConfigs = ClashGenerator.generateProxies(allSelectedNodes)
 
-    // 生成节点名称映射
-    const nodeMappingNames: Record<string, string[]> = {}
-    for (const [groupName, groupNodes] of Object.entries(nodeMapping)) {
-      nodeMappingNames[groupName] = groupNodes.map((n) => n.name)
-    }
+    // 生成节点名称映射（包括节点名和分组名）
+    const nodeMappingNames = generateNodeMappingNames(nodeMapping)
 
     // 生成预览
     const preview = ClashGenerator.generate({
@@ -390,29 +134,6 @@ export default function ConfigsPage() {
     setPreviewContent(preview)
   }, [nodeMapping, selectedTemplate])
 
-  const extractGroupNames = (content: string): string[] => {
-    const groups: string[] = []
-    const lines = content.split("\n")
-    let inGroups = false
-
-    for (const line of lines) {
-      if (line.trim() === "proxy-groups:") {
-        inGroups = true
-        continue
-      }
-      if (inGroups) {
-        if (line.match(/^[a-z]/)) {
-          break // 遇到新的顶级 key
-        }
-        const match = line.match(/^\s+-\s+name:\s+['"]?([^'"]+)['"]?/)
-        if (match) {
-          groups.push(match[1])
-        }
-      }
-    }
-    return groups
-  }
-
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { node?: ProxyNode }
     if (data?.node) {
@@ -420,98 +141,26 @@ export default function ConfigsPage() {
     }
   }
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveNode(null)
-    const { active, over } = event
+  // 使用共享工具创建处理器
+  const handleDragEnd = useMemo(
+    () => createHandleDragEnd(nodeMapping, setNodeMapping),
+    [nodeMapping]
+  )
 
-    if (!over) return
+  const handleRemoveNode = useMemo(
+    () => createHandleRemoveNode(setNodeMapping),
+    []
+  )
 
-    const activeData = active.data.current as { 
-      node?: ProxyNode; 
-      groupName?: string; 
-      fromGroup?: boolean 
-    }
-    const overData = over.data.current as { 
-      node?: ProxyNode; 
-      groupName?: string; 
-      isPool?: boolean 
-    }
+  const handleRemoveGroup = useMemo(
+    () => createHandleRemoveGroup(nodeMapping, setNodeMapping),
+    [nodeMapping]
+  )
 
-    // 从分组拖回节点池
-    if (activeData?.fromGroup && activeData?.node && activeData?.groupName && overData?.isPool) {
-      const node = activeData.node
-      const fromGroup = activeData.groupName
-      
-      // 从分组中移除节点
-      setNodeMapping((prev) => ({
-        ...prev,
-        [fromGroup]: prev[fromGroup]?.filter((n) => n.id !== node.id) || [],
-      }))
-      
-      showToast({ 
-        title: "移除成功", 
-        description: `已将节点 "${node.name}" 移回节点池`, 
-        variant: "success" 
-      })
-      return
-    }
-
-    // 分组内排序
-    if (activeData?.node && activeData?.groupName && overData?.groupName) {
-      const activeGroup = activeData.groupName
-      const overGroup = overData.groupName
-
-      if (activeGroup === overGroup) {
-        // 同组排序
-        const nodes = [...(nodeMapping[activeGroup] || [])]
-        const oldIndex = nodes.findIndex((n) => n.id === activeData.node?.id)
-        const overNode = overData.node
-
-        if (overNode) {
-          const newIndex = nodes.findIndex((n) => n.id === overNode.id)
-          if (oldIndex !== -1 && newIndex !== -1) {
-            const newNodes = arrayMove(nodes, oldIndex, newIndex)
-            setNodeMapping((prev) => ({
-              ...prev,
-              [activeGroup]: newNodes,
-            }))
-          }
-        }
-        return
-      }
-    }
-
-    // 从节点池拖入分组
-    if (activeData?.node && overData?.groupName && !activeData?.fromGroup) {
-      const node = activeData.node
-      const groupName = overData.groupName
-
-      // 检查是否已存在
-      if (nodeMapping[groupName]?.some((n) => n.id === node.id)) {
-        return
-      }
-
-      setNodeMapping((prev) => ({
-        ...prev,
-        [groupName]: [...(prev[groupName] || []), node],
-      }))
-    }
-  }
-
-  const handleRemoveNode = (groupName: string, nodeId: string) => {
-    setNodeMapping((prev) => ({
-      ...prev,
-      [groupName]: prev[groupName]?.filter((n) => n.id !== nodeId) || [],
-    }))
-  }
-
-  const handleRemoveGroup = (groupName: string) => {
-    setNodeMapping((prev) => {
-      const newMapping = { ...prev }
-      delete newMapping[groupName]
-      return newMapping
-    })
-  }
+  const handleRemoveNestedGroup = useMemo(
+    () => createHandleRemoveNestedGroup(setNodeMapping),
+    []
+  )
 
   const handleAddGroup = () => {
     if (!newGroupName.trim()) return
@@ -533,10 +182,8 @@ export default function ConfigsPage() {
   const handleSaveConfig = async () => {
     if (!configName.trim() || !selectedTemplate) return
 
-    const nodeMappingIds: Record<string, string[]> = {}
-    for (const [groupName, groupNodes] of Object.entries(nodeMapping)) {
-      nodeMappingIds[groupName] = groupNodes.map((n) => n.id)
-    }
+    // 转换为保存格式: NodeMappingValue[] -> NodeMappingItem[]
+    const nodeMappingIds = convertToSaveFormat(nodeMapping)
 
     try {
       const res = await fetch("/api/configs", {
@@ -567,6 +214,9 @@ export default function ConfigsPage() {
   const usedNodeIds = new Set(
     Object.values(nodeMapping)
       .flat()
+      .filter((item): item is ProxyNode =>
+        typeof item === 'object' && 'id' in item
+      )
       .map((n) => n.id)
   )
   const availableNodes = nodes.filter((n) => !usedNodeIds.has(n.id))
@@ -625,7 +275,10 @@ export default function ConfigsPage() {
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
+      onDragEnd={(event) => {
+        setActiveNode(null)
+        handleDragEnd(event)
+      }}
     >
       <PageHeader title="配置生成" description="选择模板，拖拽节点生成配置文件">
         <Button onClick={() => setIsSaveOpen(true)} disabled={!selectedTemplate}>
@@ -670,15 +323,24 @@ export default function ConfigsPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-4 md:grid-cols-2">
-                  {Object.keys(nodeMapping).map((groupName) => (
-                    <DroppableGroup
-                      key={groupName}
-                      groupName={groupName}
-                      nodes={nodeMapping[groupName] || []}
-                      onRemoveNode={(nodeId) => handleRemoveNode(groupName, nodeId)}
-                      onRemoveGroup={() => handleRemoveGroup(groupName)}
-                    />
-                  ))}
+                  {Object.keys(nodeMapping).map((groupName) => {
+                    const items = nodeMapping[groupName] || []
+
+                    // 使用共享工具分离嵌套分组和普通节点
+                    const { nestedGroups, nodes } = separateNestedGroupsAndNodes(items, nodeMapping)
+
+                    return (
+                      <DraggableGroupCard
+                        key={groupName}
+                        groupName={groupName}
+                        nodes={nodes}
+                        nestedGroups={nestedGroups}
+                        onRemoveNode={(nodeId) => handleRemoveNode(groupName, nodeId)}
+                        onRemoveGroup={() => handleRemoveGroup(groupName)}
+                        onRemoveNestedGroup={(nestedGroupName) => handleRemoveNestedGroup(groupName, nestedGroupName)}
+                      />
+                    )
+                  })}
                 </div>
                 <Button
                   variant="outline"
