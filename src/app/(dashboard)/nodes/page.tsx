@@ -225,12 +225,22 @@ export default function NodesPage() {
     Object.entries(params).forEach(([key, value]) => {
       const strValue = String(value || "")
       const originalValue = originalConfig[key]
+      const isOriginalObject = typeof originalValue === 'object' && originalValue !== null && !Array.isArray(originalValue)
+      const isMarkedAsObject = params[`__is_object__${key}`] === 'true'
 
       if (!strValue.trim()) {
         delete previewConfig[key]
       } else if (Array.isArray(originalValue)) {
         // 保留数组结构
         previewConfig[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
+      } else if (isOriginalObject || isMarkedAsObject) {
+        // 对于嵌套对象，解析 JSON 字符串还原为对象
+        try {
+          const parsed = JSON.parse(strValue)
+          previewConfig[key] = parsed
+        } catch {
+          previewConfig[key] = strValue
+        }
       } else if (strValue.toLowerCase() === "true") {
         previewConfig[key] = true
       } else if (strValue.toLowerCase() === "false") {
@@ -240,8 +250,10 @@ export default function NodesPage() {
       }
     })
 
-    // 格式化配置为 YAML
-    Object.entries(previewConfig).forEach(([key, value]) => {
+    // 格式化配置为 YAML，过滤掉辅助字段
+    Object.entries(previewConfig)
+      .filter(([key]) => !key.startsWith('__is_object__'))
+      .forEach(([key, value]) => {
       if (Array.isArray(value)) {
         // 数组格式
         configLines.push(`  ${key}:`)
@@ -251,8 +263,19 @@ export default function NodesPage() {
       } else if (typeof value === 'boolean') {
         configLines.push(`  ${key}: ${value}`)
       } else if (typeof value === 'object' && value !== null) {
-        // 对象格式
-        configLines.push(`  ${key}: ${JSON.stringify(value)}`)
+        // 嵌套对象格式化为多行 YAML
+        configLines.push(`  ${key}:`)
+        Object.entries(value as Record<string, unknown>).forEach(([subKey, subValue]) => {
+          if (typeof subValue === 'object' && subValue !== null) {
+            // headers 等嵌套对象
+            configLines.push(`    ${subKey}:`)
+            Object.entries(subValue as Record<string, unknown>).forEach(([k, v]) => {
+              configLines.push(`      ${k}: ${v}`)
+            })
+          } else {
+            configLines.push(`    ${subKey}: ${subValue}`)
+          }
+        })
       } else {
         const formattedValue = typeof value === 'string' ? `${value}` : value
         configLines.push(`  ${key}: ${formattedValue}`)
@@ -443,8 +466,10 @@ export default function NodesPage() {
         if (Array.isArray(value)) {
           configForEdit[key] = value.join(', ')
         } else if (typeof value === 'object' && value !== null) {
-          // 对于对象,先不处理,保留原样
+          // 对于嵌套对象（如 ws-opts），使用特殊标记保留原始结构
+          // 这样在保存时可以正确还原为对象，而不是 JSON 字符串
           configForEdit[key] = JSON.stringify(value)
+          configForEdit[`__is_object__${key}`] = 'true'
         } else {
           configForEdit[key] = String(value)
         }
@@ -483,21 +508,44 @@ export default function NodesPage() {
     Object.entries(editNode.params).forEach(([key, value]) => {
       const strValue = String(value || "")
 
-      // 如果原始配置中该字段是数组,需要保持数组结构
+      // 如果原始配置中该字段是嵌套对象,需要保持对象结构
       const originalValue = originalConfig[key]
+      const isOriginalObject = typeof originalValue === 'object' && originalValue !== null && !Array.isArray(originalValue)
+
+      // 检查用户是否标记该字段为对象类型（通过 handleOpenEditNode 设置）
+      const isMarkedAsObject = editNode.params[`__is_object__${key}`] === 'true'
 
       if (!strValue.trim()) {
         // 如果用户清空了字段,从 config 中删除
+        // 同时删除对象标记
         delete config[key]
+        delete config[`__is_object__${key}`]
       } else if (Array.isArray(originalValue)) {
         // 保留数组结构,将逗号分隔的字符串转回数组
         config[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
+      } else if (isOriginalObject || isMarkedAsObject) {
+        // 对于嵌套对象（如 ws-opts），解析 JSON 字符串还原为对象
+        try {
+          const parsed = JSON.parse(strValue)
+          config[key] = parsed
+        } catch {
+          // 如果解析失败，保持原始值
+          config[key] = strValue
+        }
       } else if (strValue.toLowerCase() === "true") {
         config[key] = true
       } else if (strValue.toLowerCase() === "false") {
         config[key] = false
       } else {
         config[key] = strValue
+      }
+    })
+
+    // 过滤掉辅助字段（以 __is_object__ 开头的字段）
+    const cleanConfig: Record<string, unknown> = {}
+    Object.entries(config).forEach(([key, value]) => {
+      if (!key.startsWith('__is_object__')) {
+        cleanConfig[key] = value
       }
     })
 
@@ -512,7 +560,7 @@ export default function NodesPage() {
           server: editNode.server.trim(),
           port,
           groupId: editNode.groupId || null,
-          config,
+          config: cleanConfig,
         }),
       })
 
