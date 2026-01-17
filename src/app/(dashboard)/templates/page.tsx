@@ -38,20 +38,10 @@ dns:
 proxies: []
 
 proxy-groups:
-  - name: PROXY
-    type: select
-    proxies:
-      - 🚀自动选择
   - name: 🚀自动选择
     type: url-test
     proxies:
     url: 'http://www.gstatic.com/generate_204'
-    interval: 300
-  - name: 🇯🇵日本节点
-    type: url-test
-    proxies:
-    url: 'http://www.gstatic.com/generate_204'
-    interval: 300
 rule-providers:
   reject:
     type: http
@@ -132,34 +122,20 @@ rule-providers:
     path: ./ruleset/applications.yaml
     interval: 86400
 rules:
-  - DOMAIN-SUFFIX,anthropic.com,🇯🇵日本节点
-  - DOMAIN-SUFFIX,claude.ai,🇯🇵日本节点
-  - DOMAIN-KEYWORD,claude,🇯🇵日本节点
-  - DOMAIN-KEYWORD,anthropic,🇯🇵日本节点
-  - DOMAIN-SUFFIX,chatgpt.com,🇯🇵日本节点
-  - DOMAIN-SUFFIX,10086.cn,PROXY
-  - DOMAIN-SUFFIX,jable.tv,PROXY
-  - DOMAIN,clash.razord.top,DIRECT
-  - DOMAIN,yacd.haishan.me,DIRECT
-  - DOMAIN-SUFFIX,netseas.net,DIRECT
-  - DOMAIN-SUFFIX,hanhandato.top,DIRECT
-  - DOMAIN-SUFFIX,hanhandato.cn,DIRECT
-  - DOMAIN-SUFFIX,motayun.net,DIRECT
-  - DOMAIN-SUFFIX,test.svc,DIRECT
   - RULE-SET,applications,DIRECT
   - RULE-SET,private,DIRECT
   - RULE-SET,reject,REJECT
   - RULE-SET,icloud,DIRECT
   - RULE-SET,apple,DIRECT
-  - RULE-SET,google,PROXY
-  - RULE-SET,proxy,PROXY
+  - RULE-SET,google,🚀自动选择
+  - RULE-SET,proxy,🚀自动选择
   - RULE-SET,direct,DIRECT
   - RULE-SET,lancidr,DIRECT
   - RULE-SET,cncidr,DIRECT
-  - RULE-SET,telegramcidr,PROXY
+  - RULE-SET,telegramcidr,🚀自动选择
   - GEOIP,LAN,DIRECT
   - GEOIP,CN,DIRECT
-  - MATCH,PROXY
+  - MATCH,🚀自动选择
 `
 
 export default function TemplatesPage() {
