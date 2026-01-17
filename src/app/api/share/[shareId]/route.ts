@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { publicLimiter } from '@/lib/rate-limit'
+import { ClashGenerator } from '@/lib/clash-generator'
 
 // GET /api/share/[shareId] - Get share link content (requires token)
 export async function GET(
@@ -63,7 +64,7 @@ export async function GET(
     let configName: string
 
     if (shareLink.isDynamic && shareLink.configId) {
-      // Fetch latest content from Config table
+      // Dynamic share: fetch latest content by regenerating config with current node data
       const config = await prisma.config.findUnique({
         where: { id: shareLink.configId },
       })
@@ -72,8 +73,64 @@ export async function GET(
         return new NextResponse('关联的配置已被删除', { status: 404 })
       }
 
-      configContent = config.content
       configName = config.name
+
+      // Get template for regeneration
+      const template = await prisma.template.findUnique({
+        where: { id: config.templateId },
+      })
+
+      if (!template) {
+        return new NextResponse('关联的模板已被删除', { status: 404 })
+      }
+
+      // Extract node IDs from nodeMapping (handle both node IDs and group references)
+      const nodeMapping = config.nodeMapping as Record<string, Array<string | { type: 'group'; name: string }>>
+      const allNodeIds = Object.values(nodeMapping)
+        .flat()
+        .filter((item): item is string => typeof item === 'string')
+
+      // Fetch latest node information from database
+      const nodes = await prisma.proxyNode.findMany({
+        where: {
+          id: { in: allNodeIds },
+        },
+      })
+
+      // Generate proxy configurations with latest node data
+      const proxies = ClashGenerator.generateProxies(
+        nodes.map((node) => ({
+          name: node.name,
+          type: node.type,
+          server: node.server,
+          port: node.port,
+          config: node.config as Record<string, unknown>,
+        }))
+      )
+
+      // Build node name mapping (handle node IDs and group references)
+      const nodeNameMapping: Record<string, string[]> = {}
+      for (const [groupName, items] of Object.entries(nodeMapping)) {
+        nodeNameMapping[groupName] = items
+          .map((item) => {
+            if (typeof item === 'string') {
+              // Node ID - find node name
+              return nodes.find((n) => n.id === item)?.name
+            } else {
+              // Group reference - use group name directly
+              return item.name
+            }
+          })
+          .filter(Boolean) as string[]
+      }
+
+      // Regenerate config with latest node information
+      configContent = ClashGenerator.generate({
+        template: template.content,
+        proxies,
+        nodeMapping: nodeNameMapping,
+        removeUnusedGroups: true,
+      })
     } else {
       // Use stored content
       if (!shareLink.configContent) {
