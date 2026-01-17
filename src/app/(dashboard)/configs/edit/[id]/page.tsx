@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ResizablePanel } from "@/components/ui/resizable-panel"
 import {
   Dialog,
   DialogContent,
@@ -365,6 +366,7 @@ export default function EditConfigPage() {
   const [isSaveOpen, setIsSaveOpen] = useState(false)
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
+  const [nodePoolWidth, setNodePoolWidth] = useState(320)
 
   const fetchData = useCallback(async () => {
     try {
@@ -877,44 +879,51 @@ export default function EditConfigPage() {
         </div>
       </PageHeader>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        {/* 左侧：节点池 */}
-        <Card className="h-fit max-h-[calc(100vh-200px)]">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">节点池</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[calc(100vh-280px)] pr-4">
-              <div className="space-y-2">
-                {poolGroupList.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    暂无可用节点
-                  </p>
-                ) : (
-                  poolGroupList.map((group, index) => (
-                    <NodePoolGroup
-                      key={group.id}
-                      groupName={group.name}
-                      nodes={group.nodes}
-                      groupColor={
-                        group.id === "ungrouped"
-                          ? "border-l-muted"
-                          : index === 1
-                          ? "border-l-primary"
-                          : index === 2
-                          ? "border-l-blue-500"
-                          : "border-l-purple-500"
-                      }
-                    />
-                  ))
-                )}
-              </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+      <div className="flex gap-6">
+        {/* 左侧：节点池（可调整宽度） */}
+        <ResizablePanel
+          width={nodePoolWidth}
+          minWidth={200}
+          maxWidth={500}
+          onWidthChange={setNodePoolWidth}
+        >
+          <Card className="h-fit max-h-[calc(100vh-200px)]">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">节点池</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[calc(100vh-280px)] pr-4">
+                <div className="space-y-2">
+                  {poolGroupList.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-8">
+                      暂无可用节点
+                    </p>
+                  ) : (
+                    poolGroupList.map((group, index) => (
+                      <NodePoolGroup
+                        key={group.id}
+                        groupName={group.name}
+                        nodes={group.nodes}
+                        groupColor={
+                          group.id === "ungrouped"
+                            ? "border-l-muted"
+                            : index === 1
+                            ? "border-l-primary"
+                            : index === 2
+                            ? "border-l-blue-500"
+                            : "border-l-purple-500"
+                        }
+                      />
+                    ))
+                  )}
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </ResizablePanel>
 
         {/* 右侧：分组配置 + 预览 */}
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4">
           {/* 模板信息（只读） */}
           <Card>
             <CardHeader className="pb-3">

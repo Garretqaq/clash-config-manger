@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { ResizablePanel } from "@/components/ui/resizable-panel"
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,7 @@ export default function ConfigsPage() {
   const [isSaveOpen, setIsSaveOpen] = useState(false)
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
+  const [nodePoolWidth, setNodePoolWidth] = useState(320)
 
   // 定义 selectTemplate 函数（需要放在 fetchData 之前）
   const selectTemplate = useCallback((template: Template) => {
@@ -287,12 +289,19 @@ export default function ConfigsPage() {
         </Button>
       </PageHeader>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        {/* 左侧：节点池（支持拖回） */}
-        <DroppableNodePool poolGroupList={poolGroupList} />
+      <div className="flex gap-6">
+        {/* 左侧：节点池（支持拖回，可调整宽度） */}
+        <ResizablePanel
+          width={nodePoolWidth}
+          minWidth={200}
+          maxWidth={500}
+          onWidthChange={setNodePoolWidth}
+        >
+          <DroppableNodePool poolGroupList={poolGroupList} />
+        </ResizablePanel>
 
         {/* 右侧：分组配置 + 预览 */}
-        <div className="space-y-4">
+        <div className="flex-1 space-y-4">
           {/* 模板选择 */}
           <Card>
             <CardHeader className="pb-3">
