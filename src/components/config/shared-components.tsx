@@ -29,7 +29,7 @@ import type { ProxyNode, NodeMappingValue } from "@/lib/types"
 // ============== 可拖拽的节点卡片 ==============
 export function DraggablePoolNode({ node }: { node: ProxyNode }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `node-${node.id}`,
+    id: `pool-node-${node.id}`,
     data: { node },
   })
 

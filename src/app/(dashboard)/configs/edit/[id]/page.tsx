@@ -57,7 +57,7 @@ import type { ProxyNode, Template, Group, Config, NodeMappingValue } from "@/lib
 // 可拖拽的节点卡片
 function DraggablePoolNode({ node }: { node: ProxyNode }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `node-${node.id}`,
+    id: `pool-node-${node.id}`,
     data: { node },
   })
 
@@ -797,29 +797,23 @@ export default function EditConfigPage() {
     }
   }
 
-  // 获取未被使用的节点（节点池）
-  const usedNodeIds = new Set(
-    Object.values(nodeMapping)
-      .flat()
-      .filter((item): item is ProxyNode => typeof item === 'object' && 'id' in item)
-      .map((n) => n.id)
-  )
-  const availableNodes = nodes.filter((n) => !usedNodeIds.has(n.id))
+  // 节点池显示所有节点，支持重复拖动到不同分组
+  const poolNodes = nodes
 
   // 按分组组织节点
   const nodesByGroup = useMemo(() => {
     const result: Record<string, ProxyNode[]> = {}
     // 未分组的节点
-    result["ungrouped"] = availableNodes.filter((n) => !n.groupId)
+    result["ungrouped"] = poolNodes.filter((n) => !n.groupId)
     // 按 groupId 分组
-    availableNodes.forEach((node) => {
+    poolNodes.forEach((node) => {
       if (node.groupId) {
         if (!result[node.groupId]) result[node.groupId] = []
         result[node.groupId].push(node)
       }
     })
     return result
-  }, [availableNodes])
+  }, [poolNodes])
 
   // 生成节点池分组列表（未分组优先）
   const poolGroupList = useMemo(() => {
