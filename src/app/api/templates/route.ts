@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ClashGenerator } from '@/lib/clash-generator'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // GET /api/templates - 获取所有模板
 export async function GET() {
   try {

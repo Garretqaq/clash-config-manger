@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // GET /api/groups - 获取所有分组
 export async function GET() {
   try {

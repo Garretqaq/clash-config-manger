@@ -4,6 +4,9 @@ import { prisma } from '@/lib/db'
 import { nanoid } from 'nanoid'
 import { createLimiter } from '@/lib/rate-limit'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // Generate access token from password
 function generateAccessToken(shareId: string, password: string): string {
   return crypto

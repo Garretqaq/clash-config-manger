@@ -5,6 +5,9 @@ import { verifyCaptcha, generateCaptcha } from "@/lib/captcha";
 // Force Node.js runtime for JWT support
 export const runtime = "nodejs";
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // Login attempt tracking (in-memory, will reset on server restart)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutes

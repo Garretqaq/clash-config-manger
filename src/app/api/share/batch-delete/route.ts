@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { createLimiter } from '@/lib/rate-limit'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 export async function POST(request: NextRequest) {
   try {
     const ip = request.headers.get('x-forwarded-for') || 'unknown'

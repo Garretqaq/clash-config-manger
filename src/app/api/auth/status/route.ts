@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/lib/auth";
 // Force Node.js runtime for JWT support
 export const runtime = "nodejs";
 
+// Mark as dynamic route since it uses cookies
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser(request);

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { ClashParser } from '@/lib/clash-parser'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // GET /api/subscriptions - 获取所有订阅
 export async function GET() {
   try {

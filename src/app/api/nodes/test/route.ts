@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { batchTestNodes } from '@/lib/services/connectivity'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // POST /api/nodes/test - 测试节点连通性
 export async function POST(request: NextRequest) {
   try {

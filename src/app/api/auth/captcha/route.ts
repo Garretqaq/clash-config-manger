@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { generateCaptcha } from "@/lib/captcha";
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const captcha = generateCaptcha();

@@ -3,6 +3,9 @@ import { prisma } from '@/lib/db'
 import { publicLimiter } from '@/lib/rate-limit'
 import { ClashGenerator } from '@/lib/clash-generator'
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 // GET /api/share/[shareId] - Get share link content (requires token)
 export async function GET(
   request: NextRequest,

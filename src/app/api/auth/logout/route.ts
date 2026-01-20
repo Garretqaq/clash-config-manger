@@ -4,6 +4,9 @@ import { clearAuthCookie } from "@/lib/auth";
 // Force Node.js runtime for JWT support
 export const runtime = "nodejs";
 
+// Mark as dynamic route
+export const dynamic = "force-dynamic";
+
 export async function POST() {
   try {
     const response = NextResponse.json({
