@@ -1,16 +1,19 @@
-import { NextResponse } from "next/server";
-import { getSession } from "@/lib/session";
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 
-export async function GET() {
+// Force Node.js runtime for JWT support
+export const runtime = "nodejs";
+
+export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const user = await getCurrentUser(request);
     
-    if (session.isAuthenticated && session.username) {
+    if (user) {
       return NextResponse.json({
         isAuthenticated: true,
         user: {
-          username: session.username,
-          loginTime: session.loginTime,
+          username: user.username,
+          loginTime: user.loginTime,
         },
       });
     }

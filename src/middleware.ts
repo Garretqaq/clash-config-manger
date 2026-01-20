@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getSession } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -27,9 +27,9 @@ export async function middleware(request: NextRequest) {
   
   // Check authentication status
   try {
-    const session = await getSession();
+    const user = await getCurrentUser(request);
     
-    if (!session.isAuthenticated) {
+    if (!user) {
       // Not authenticated, redirect to login
       const loginUrl = new URL("/login", request.url);
       loginUrl.searchParams.set("callbackUrl", pathname);

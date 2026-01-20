@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { saveSession, getSession, destroySession } from "@/lib/session";
+import { generateToken, setAuthCookie, getCurrentUser, LOGIN_MAX_ATTEMPTS } from "@/lib/auth";
 import { verifyCaptcha, generateCaptcha } from "@/lib/captcha";
+
+// Force Node.js runtime for JWT support
+export const runtime = "nodejs";
 
 // Login attempt tracking (in-memory, will reset on server restart)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = parseInt(process.env.LOGIN_MAX_ATTEMPTS || "3");
+const MAX_ATTEMPTS = LOGIN_MAX_ATTEMPTS;
 
 function getClientIdentifier(request: NextRequest): string {
   const ip = request.headers.get("x-forwarded-for") || "unknown";
@@ -108,8 +111,8 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if already logged in
-    const existingSession = await getSession();
-    if (existingSession.isAuthenticated && existingSession.username === username) {
+    const currentUser = await getCurrentUser(request);
+    if (currentUser?.username === username) {
       // Already logged in, just return success
       return NextResponse.json({
         success: true,
@@ -118,15 +121,18 @@ export async function POST(request: NextRequest) {
       });
     }
     
-    // Create new session
-    await saveSession({ username });
+    // Generate token and set cookie
+    const token = await generateToken(username);
     resetLoginAttempts(clientId);
     
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "登录成功",
       user: { username },
     });
+    
+    setAuthCookie(response, token);
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

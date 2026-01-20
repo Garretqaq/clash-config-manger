@@ -1,14 +1,18 @@
 import { NextResponse } from "next/server";
-import { destroySession } from "@/lib/session";
+import { clearAuthCookie } from "@/lib/auth";
+
+// Force Node.js runtime for JWT support
+export const runtime = "nodejs";
 
 export async function POST() {
   try {
-    await destroySession();
-    
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "退出登录成功",
     });
+    
+    clearAuthCookie(response);
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(

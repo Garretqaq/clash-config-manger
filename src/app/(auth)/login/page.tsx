@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { isAuthenticated, isLoading, login } = useAuth();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -21,12 +22,15 @@ export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requireCaptcha, setRequireCaptcha] = useState(false);
 
+  // Get redirect URL from query params or default to /nodes
+  const callbackUrl = searchParams.get("callbackUrl") || "/nodes";
+
   useEffect(() => {
-    // If already authenticated, redirect to nodes page
+    // If already authenticated, redirect to callback URL or nodes page
     if (!isLoading && isAuthenticated) {
-      router.replace("/nodes");
+      router.replace(callbackUrl);
     }
-  }, [isAuthenticated, isLoading, router]);
+  }, [isAuthenticated, isLoading, router, callbackUrl]);
 
   const fetchCaptcha = async () => {
     try {
@@ -53,7 +57,8 @@ export default function LoginPage() {
 
     try {
       await login(username, password, requireCaptcha ? captchaId : undefined, requireCaptcha ? captchaCode : undefined);
-      router.replace("/nodes");
+      // Redirect to callback URL or default to /nodes
+      router.replace(callbackUrl);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "登录失败";
       
