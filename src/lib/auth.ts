@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 export interface JWTPayload {
   username: string;
   loginTime: number;
+  [key: string]: unknown; // 添加索引签名以兼容 jose 库
 }
 
 // 常量配置（硬编码默认值）
