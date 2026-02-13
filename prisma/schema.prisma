@@ -4,23 +4,23 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
 model ProxyNode {
   id             String        @id @default(cuid())
   name           String
-  type           String        // ss, vmess, trojan, etc.
+  type           String
   server         String
   port           Int
-  config         Json          // 完整节点配置
+  config         String        // JSON 字符串
   groupId        String?
   group          Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
-  createdAt      DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp(0)
-  updatedAt      DateTime      @default(dbgenerated("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")) @db.Timestamp(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([groupId])
   @@index([subscriptionId])
@@ -29,13 +29,13 @@ model ProxyNode {
 model Group {
   id             String        @id @default(cuid())
   name           String
-  type           String        // select, url-test, fallback, load-balance
+  type           String
   sortOrder      Int           @default(0)
   subscriptionId String?
   subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
   nodes          ProxyNode[]
-  createdAt      DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp(0)
-  updatedAt      DateTime      @default(dbgenerated("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")) @db.Timestamp(0)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
 
   @@index([subscriptionId])
 }
@@ -44,48 +44,48 @@ model Template {
   id          String   @id @default(cuid())
   name        String
   description String?
-  content     String   @db.Text
+  content     String
   isDefault   Boolean  @default(false)
-  createdAt   DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp(0)
-  updatedAt   DateTime @default(dbgenerated("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")) @db.Timestamp(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Subscription {
-  id         String        @id @default(cuid())
-  name       String
-  url        String        @db.Text
-  yamlContent String?      @db.Text
-  enabled    Boolean       @default(true)
-  nodes      ProxyNode[]
-  groups     Group[]
-  lastSyncAt DateTime?
-  createdAt  DateTime      @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp(0)
-  updatedAt  DateTime      @default(dbgenerated("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")) @db.Timestamp(0)
+  id          String      @id @default(cuid())
+  name        String
+  url         String
+  yamlContent String?
+  enabled     Boolean     @default(true)
+  nodes       ProxyNode[]
+  groups      Group[]
+  lastSyncAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model Config {
   id          String   @id @default(cuid())
   name        String
   templateId  String
-  nodeMapping Json     // { groupId: [nodeIds] }
-  content     String   @db.LongText
-  createdAt   DateTime @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp(0)
-  updatedAt   DateTime @default(dbgenerated("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")) @db.Timestamp(0)
+  nodeMapping String   // JSON 字符串
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ShareLink {
   id            String    @id @default(cuid())
-  shareId       String    @unique @default(cuid())  // 12字符随机ID
-  accessToken   String    @unique // HMAC-SHA256(shareId + password)
-  configId      String?   // 关联的配置 ID
+  shareId       String    @unique @default(cuid())
+  accessToken   String    @unique
+  configId      String?
   configName    String?
-  configContent String?   @db.LongText  // 可为空，动态分享时从配置获取
+  configContent String?
   description   String?
   expiresAt     DateTime?
   views         Int       @default(0)
-  isDynamic     Boolean   @default(false)  // 是否动态获取配置内容
-  createdAt     DateTime  @default(dbgenerated("CURRENT_TIMESTAMP")) @db.Timestamp(0)
-  updatedAt     DateTime  @default(dbgenerated("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")) @db.Timestamp(0)
+  isDynamic     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([shareId])
   @@index([accessToken])

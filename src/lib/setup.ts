@@ -1,11 +1,15 @@
 import mysql, { Connection, RowDataPacket } from "mysql2/promise";
+import * as fs from "fs";
+import * as path from "path";
 import {
   AppConfig,
+  DatabaseType,
   saveConfig,
-  getConfig,
   hasConfigFile,
   isInitialized,
-  generateJwtSecret
+  generateJwtSecret,
+  getDataDir,
+  ensureDataDir,
 } from "./config";
 
 export interface DatabaseConfig {
@@ -20,14 +24,14 @@ export interface ValidationResult {
   success: boolean;
   error?: string;
   version?: string;
-  databaseExists: boolean;
+  databaseExists?: boolean;
 }
 
 // 重新导出配置相关函数
 export { isInitialized as checkInitialized, hasConfigFile };
 
 /**
- * 检查数据库是否存在
+ * 检查 MySQL 数据库是否存在
  */
 export async function checkDatabaseExists(
   connection: Connection,
@@ -45,7 +49,7 @@ export async function checkDatabaseExists(
 }
 
 /**
- * 创建数据库
+ * 创建 MySQL 数据库
  */
 export async function createDatabase(
   connection: Connection,
@@ -57,9 +61,35 @@ export async function createDatabase(
 }
 
 /**
- * 验证数据库连接
+ * 验证 SQLite 连接（只检查目录是否可写）
  */
-export async function validateDatabaseConnection(
+export async function validateSqliteConnection(): Promise<ValidationResult> {
+  try {
+    ensureDataDir();
+    const dataDir = getDataDir();
+
+    // 检查目录是否可写
+    const testFile = path.join(dataDir, ".write-test");
+    fs.writeFileSync(testFile, "test");
+    fs.unlinkSync(testFile);
+
+    return {
+      success: true,
+      version: "SQLite 3",
+    };
+  } catch (error: unknown) {
+    const fsError = error as { message?: string };
+    return {
+      success: false,
+      error: `无法写入数据目录: ${fsError.message || "未知错误"}`,
+    };
+  }
+}
+
+/**
+ * 验证 MySQL 数据库连接
+ */
+export async function validateMysqlConnection(
   dbConfig: DatabaseConfig
 ): Promise<ValidationResult> {
   let connection: Connection | null = null;
@@ -151,9 +181,85 @@ export async function validateDatabaseConnection(
 }
 
 /**
- * 执行初始化流程
+ * 复制对应数据库类型的 Prisma schema
  */
-export async function executeInitialization(config: {
+export function copyPrismaSchema(dbType: DatabaseType): void {
+  const prismaDir = path.join(process.cwd(), "prisma");
+  const sourceSchema = path.join(prismaDir, `schema.${dbType}.prisma`);
+  const targetSchema = path.join(prismaDir, "schema.prisma");
+
+  if (fs.existsSync(sourceSchema)) {
+    fs.copyFileSync(sourceSchema, targetSchema);
+  }
+}
+
+/**
+ * 执行 SQLite 初始化流程
+ */
+export async function executeSqliteInitialization(config: {
+  admin: {
+    username: string;
+    password: string;
+  };
+}): Promise<{ success: boolean; error?: string; step?: string }> {
+  // Step 1: 确保数据目录存在
+  try {
+    ensureDataDir();
+  } catch (error: unknown) {
+    const fsError = error as { message?: string };
+    return {
+      success: false,
+      error: `创建数据目录失败: ${fsError.message || "未知错误"}`,
+      step: "directory",
+    };
+  }
+
+  // Step 2: 复制 SQLite schema
+  try {
+    copyPrismaSchema("sqlite");
+  } catch (error: unknown) {
+    const fsError = error as { message?: string };
+    return {
+      success: false,
+      error: `复制 Schema 文件失败: ${fsError.message || "未知错误"}`,
+      step: "schema",
+    };
+  }
+
+  // Step 3: 写入配置文件
+  try {
+    const appConfig: AppConfig = {
+      initialized: true,
+      databaseType: "sqlite",
+      database: {
+        filename: "clash.db",
+      },
+      admin: config.admin,
+      jwt: {
+        secret: generateJwtSecret(),
+      },
+      session: {
+        maxLoginAttempts: 3,
+        expiryDays: 7,
+      },
+    };
+    saveConfig(appConfig);
+  } catch (error: unknown) {
+    const fsError = error as { message?: string };
+    return {
+      success: false,
+      error: `写入配置文件失败: ${fsError.message || "未知错误"}`,
+      step: "config",
+    };
+  }
+
+  return { success: true };
+}
+
+/**
+ * 执行 MySQL 初始化流程
+ */
+export async function executeMysqlInitialization(config: {
   database: {
     host: string;
     port: number;
@@ -202,10 +308,26 @@ export async function executeInitialization(config: {
     };
   }
 
-  // Step 2: 写入配置文件
+  // Step 2: 复制 MySQL schema
+  try {
+    copyPrismaSchema("mysql");
+  } catch (error: unknown) {
+    const fsError = error as { message?: string };
+    return {
+      success: false,
+      error: `复制 Schema 文件失败: ${fsError.message || "未知错误"}`,
+      step: "schema",
+    };
+  }
+
+  // Step 3: 确保数据目录存在
+  ensureDataDir();
+
+  // Step 4: 写入配置文件
   try {
     const appConfig: AppConfig = {
       initialized: true,
+      databaseType: "mysql",
       database: config.database,
       admin: config.admin,
       jwt: {

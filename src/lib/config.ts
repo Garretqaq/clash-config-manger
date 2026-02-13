@@ -2,18 +2,26 @@ import * as fs from "fs";
 import * as path from "path";
 import { randomBytes } from "crypto";
 
-// 配置文件路径
-const CONFIG_PATH = path.join(process.cwd(), "config.json");
+// 数据目录路径
+const DATA_DIR = path.join(process.cwd(), "data");
+const CONFIG_PATH = path.join(DATA_DIR, "config.json");
+
+// 数据库类型
+export type DatabaseType = "sqlite" | "mysql";
 
 // 配置接口
 export interface AppConfig {
   initialized: boolean;
+  databaseType: DatabaseType;
   database: {
-    host: string;
-    port: number;
-    username: string;
-    password: string;
-    database: string;
+    // SQLite 配置
+    filename?: string;
+    // MySQL 配置
+    host?: string;
+    port?: number;
+    username?: string;
+    password?: string;
+    database?: string;
   };
   admin: {
     username: string;
@@ -31,12 +39,9 @@ export interface AppConfig {
 // 默认配置
 const DEFAULT_CONFIG: AppConfig = {
   initialized: false,
+  databaseType: "sqlite",
   database: {
-    host: "localhost",
-    port: 3306,
-    username: "root",
-    password: "",
-    database: "clash_config",
+    filename: "clash.db",
   },
   admin: {
     username: "admin",
@@ -53,6 +58,22 @@ const DEFAULT_CONFIG: AppConfig = {
 
 // 内存缓存
 let configCache: AppConfig | null = null;
+
+/**
+ * 确保数据目录存在
+ */
+export function ensureDataDir(): void {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+}
+
+/**
+ * 获取数据目录路径
+ */
+export function getDataDir(): string {
+  return DATA_DIR;
+}
 
 /**
  * 生成随机 JWT 密钥
@@ -89,6 +110,7 @@ export function getConfig(): AppConfig {
  * 写入配置
  */
 export function saveConfig(config: AppConfig): void {
+  ensureDataDir();
   fs.writeFileSync(CONFIG_PATH, JSON.stringify(config, null, 2), "utf-8");
   configCache = config;
 }
@@ -102,13 +124,28 @@ export function isInitialized(): boolean {
 }
 
 /**
+ * 获取数据库类型
+ */
+export function getDatabaseType(): DatabaseType {
+  const config = getConfig();
+  return config.databaseType || "sqlite";
+}
+
+/**
  * 获取数据库连接 URL
  */
 export function getDatabaseUrl(): string {
   const config = getConfig();
-  const { host, port, username, password, database } = config.database;
-  const encodedPassword = encodeURIComponent(password);
-  return `mysql://${username}:${encodedPassword}@${host}:${port}/${database}`;
+
+  if (config.databaseType === "sqlite") {
+    const filename = config.database.filename || "clash.db";
+    const dbPath = path.join(DATA_DIR, filename);
+    return `file:${dbPath}`;
+  } else {
+    const { host, port, username, password, database } = config.database;
+    const encodedPassword = encodeURIComponent(password || "");
+    return `mysql://${username}:${encodedPassword}@${host}:${port}/${database}`;
+  }
 }
 
 /**

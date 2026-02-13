@@ -1,0 +1,94 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model ProxyNode {
+  id             String        @id @default(cuid())
+  name           String
+  type           String
+  server         String
+  port           Int
+  config         String        // JSON 字符串
+  groupId        String?
+  group          Group?        @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([groupId])
+  @@index([subscriptionId])
+}
+
+model Group {
+  id             String        @id @default(cuid())
+  name           String
+  type           String
+  sortOrder      Int           @default(0)
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  nodes          ProxyNode[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([subscriptionId])
+}
+
+model Template {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  content     String
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Subscription {
+  id          String      @id @default(cuid())
+  name        String
+  url         String
+  yamlContent String?
+  enabled     Boolean     @default(true)
+  nodes       ProxyNode[]
+  groups      Group[]
+  lastSyncAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Config {
+  id          String   @id @default(cuid())
+  name        String
+  templateId  String
+  nodeMapping String   // JSON 字符串
+  content     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ShareLink {
+  id            String    @id @default(cuid())
+  shareId       String    @unique @default(cuid())
+  accessToken   String    @unique
+  configId      String?
+  configName    String?
+  configContent String?
+  description   String?
+  expiresAt     DateTime?
+  views         Int       @default(0)
+  isDynamic     Boolean   @default(false)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([shareId])
+  @@index([accessToken])
+  @@index([expiresAt])
+  @@index([configId])
+}

@@ -30,8 +30,16 @@ import {
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type Step = 1 | 2 | 3;
+type DatabaseType = "sqlite" | "mysql";
 
 interface DbValidation {
   tested: boolean;
@@ -52,6 +60,9 @@ export default function SetupPage() {
   const router = useRouter();
   const [checkingInit, setCheckingInit] = useState(true);
   const [step, setStep] = useState<Step>(1);
+
+  // 数据库类型
+  const [databaseType, setDatabaseType] = useState<DatabaseType>("sqlite");
 
   // 检查系统是否已初始化
   useEffect(() => {
@@ -103,6 +114,18 @@ export default function SetupPage() {
 
   // 测试数据库连接
   const testDatabaseConnection = async () => {
+    // SQLite 不需要验证，直接通过
+    if (databaseType === "sqlite") {
+      setDbValidation({
+        tested: true,
+        success: true,
+        version: "SQLite 3",
+        databaseExists: true,
+      });
+      return;
+    }
+
+    // MySQL 需要验证
     if (!dbHost.trim() || !dbUsername.trim() || !dbName.trim()) {
       setDbValidation({
         tested: true,
@@ -125,6 +148,7 @@ export default function SetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          databaseType,
           host: dbHost,
           port: dbPort,
           username: dbUsername,
@@ -172,27 +196,38 @@ export default function SetupPage() {
   const executeInitialize = async () => {
     setInitStatus({
       inProgress: true,
-      currentStep: "正在创建数据库...",
+      currentStep: databaseType === "sqlite" ? "正在初始化 SQLite..." : "正在创建数据库...",
       success: false,
     });
 
     try {
+      const body = databaseType === "sqlite"
+        ? {
+            databaseType,
+            admin: {
+              username: adminUsername,
+              password: adminPassword,
+            },
+          }
+        : {
+            databaseType,
+            database: {
+              host: dbHost,
+              port: dbPort,
+              username: dbUsername,
+              password: dbPassword,
+              database: dbName,
+            },
+            admin: {
+              username: adminUsername,
+              password: adminPassword,
+            },
+          };
+
       const response = await fetch("/api/setup/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          database: {
-            host: dbHost,
-            port: dbPort,
-            username: dbUsername,
-            password: dbPassword,
-            database: dbName,
-          },
-          admin: {
-            username: adminUsername,
-            password: adminPassword,
-          },
-        }),
+        body: JSON.stringify(body),
       });
 
       const result = await response.json();
@@ -223,8 +258,11 @@ export default function SetupPage() {
 
   // 进入下一步
   const goToNextStep = () => {
-    if (step === 1 && dbValidation.success) {
-      setStep(2);
+    if (step === 1) {
+      // SQLite 不需要验证连接，MySQL 需要验证通过
+      if (databaseType === "sqlite" || dbValidation.success) {
+        setStep(2);
+      }
     } else if (step === 2) {
       const validation = validateStep2();
       if (validation.valid) {
@@ -280,113 +318,166 @@ export default function SetupPage() {
   // 渲染 Step 1: 数据库配置
   const renderStep1 = () => (
     <div className="space-y-4">
-      {/* 主机和端口 */}
-      <div className="grid grid-cols-3 gap-3">
-        <div className="col-span-2 space-y-2">
-          <Label htmlFor="dbHost">主机地址</Label>
-          <div className="relative">
-            <Server className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="dbHost"
-              placeholder="localhost"
-              value={dbHost}
-              onChange={(e) => {
-                setDbHost(e.target.value);
-                resetDbValidation();
-              }}
-              className="pl-9 bg-background/50"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="dbPort">端口</Label>
-          <Input
-            id="dbPort"
-            placeholder="3306"
-            value={dbPort}
-            onChange={(e) => {
-              setDbPort(e.target.value);
-              resetDbValidation();
-            }}
-            className="bg-background/50"
-          />
-        </div>
-      </div>
-
-      {/* 用户名和密码 */}
-      <div className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="dbUsername">用户名</Label>
-          <div className="relative">
-            <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="dbUsername"
-              placeholder="root"
-              value={dbUsername}
-              onChange={(e) => {
-                setDbUsername(e.target.value);
-                resetDbValidation();
-              }}
-              className="pl-9 bg-background/50"
-            />
-          </div>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="dbPassword">密码</Label>
-          <div className="relative">
-            <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-            <Input
-              id="dbPassword"
-              type={showDbPassword ? "text" : "password"}
-              placeholder="数据库密码"
-              value={dbPassword}
-              onChange={(e) => {
-                setDbPassword(e.target.value);
-                resetDbValidation();
-              }}
-              className="pl-9 pr-9 bg-background/50"
-            />
-            <button
-              type="button"
-              onClick={() => setShowDbPassword(!showDbPassword)}
-              className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
-            >
-              {showDbPassword ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* 数据库名 */}
+      {/* 数据库类型选择 */}
       <div className="space-y-2">
-        <Label htmlFor="dbName">数据库名称</Label>
-        <div className="relative">
-          <Database className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-          <Input
-            id="dbName"
-            placeholder="clash_config"
-            value={dbName}
-            onChange={(e) => {
-              setDbName(e.target.value);
-              resetDbValidation();
-            }}
-            className="pl-9 bg-background/50"
-          />
-        </div>
-        <p className="text-xs text-muted-foreground">
-          如果数据库不存在，将在初始化时自动创建
-        </p>
+        <Label>数据库类型</Label>
+        <Select
+          value={databaseType}
+          onValueChange={(value: DatabaseType) => {
+            setDatabaseType(value);
+            resetDbValidation();
+          }}
+        >
+          <SelectTrigger className="bg-background/50">
+            <SelectValue placeholder="选择数据库类型" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="sqlite">
+              <div className="flex items-center">
+                <Database className="mr-2 h-4 w-4" />
+                SQLite (轻量级，无需配置)
+              </div>
+            </SelectItem>
+            <SelectItem value="mysql">
+              <div className="flex items-center">
+                <Server className="mr-2 h-4 w-4" />
+                MySQL (需要 MySQL 服务器)
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* SQLite 信息提示 */}
+      {databaseType === "sqlite" && (
+        <div className="p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+          <div className="flex items-start">
+            <Database className="w-5 h-5 mr-3 mt-0.5 text-green-600 dark:text-green-400" />
+            <div>
+              <p className="font-medium text-green-600 dark:text-green-400">使用 SQLite 数据库</p>
+              <p className="text-sm text-muted-foreground mt-1">
+                数据将保存在 <code className="font-mono px-1 bg-muted rounded">data/clash.db</code> 文件中。SQLite 是一种轻量级数据库，无需额外配置。
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MySQL 配置字段 */}
+      {databaseType === "mysql" && (
+        <>
+          {/* 主机和端口 */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-2 space-y-2">
+              <Label htmlFor="dbHost">主机地址</Label>
+              <div className="relative">
+                <Server className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="dbHost"
+                  placeholder="localhost"
+                  value={dbHost}
+                  onChange={(e) => {
+                    setDbHost(e.target.value);
+                    resetDbValidation();
+                  }}
+                  className="pl-9 bg-background/50"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dbPort">端口</Label>
+              <Input
+                id="dbPort"
+                placeholder="3306"
+                value={dbPort}
+                onChange={(e) => {
+                  setDbPort(e.target.value);
+                  resetDbValidation();
+                }}
+                className="bg-background/50"
+              />
+            </div>
+          </div>
+
+          {/* 用户名和密码 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="dbUsername">用户名</Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="dbUsername"
+                  placeholder="root"
+                  value={dbUsername}
+                  onChange={(e) => {
+                    setDbUsername(e.target.value);
+                    resetDbValidation();
+                  }}
+                  className="pl-9 bg-background/50"
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="dbPassword">密码</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="dbPassword"
+                  type={showDbPassword ? "text" : "password"}
+                  placeholder="数据库密码"
+                  value={dbPassword}
+                  onChange={(e) => {
+                    setDbPassword(e.target.value);
+                    resetDbValidation();
+                  }}
+                  className="pl-9 pr-9 bg-background/50"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowDbPassword(!showDbPassword)}
+                  className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+                >
+                  {showDbPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 数据库名 */}
+          <div className="space-y-2">
+            <Label htmlFor="dbName">数据库名称</Label>
+            <div className="relative">
+              <Database className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                id="dbName"
+                placeholder="clash_config"
+                value={dbName}
+                onChange={(e) => {
+                  setDbName(e.target.value);
+                  resetDbValidation();
+                }}
+                className="pl-9 bg-background/50"
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              如果数据库不存在，将在初始化时自动创建
+            </p>
+          </div>
+        </>
+      )}
 
       <Button
         type="button"
         variant="outline"
         onClick={testDatabaseConnection}
-        disabled={isTestingDb || !dbHost.trim() || !dbUsername.trim() || !dbName.trim()}
+        disabled={
+          isTestingDb ||
+          (databaseType === "mysql" && (!dbHost.trim() || !dbUsername.trim() || !dbName.trim()))
+        }
         className="w-full"
       >
         {isTestingDb ? (
@@ -397,7 +488,7 @@ export default function SetupPage() {
         ) : (
           <>
             <Database className="mr-2 h-4 w-4" />
-            测试连接
+            {databaseType === "sqlite" ? "确认使用 SQLite" : "测试连接"}
           </>
         )}
       </Button>
@@ -414,12 +505,16 @@ export default function SetupPage() {
             <div className="space-y-2">
               <div className="flex items-center text-green-600 dark:text-green-400">
                 <CheckCircle2 className="w-4 h-4 mr-2" />
-                <span className="font-medium">连接成功</span>
+                <span className="font-medium">
+                  {databaseType === "sqlite" ? "SQLite 可用" : "连接成功"}
+                </span>
               </div>
-              <p className="text-sm text-muted-foreground">
-                MySQL 版本: {dbValidation.version}
-              </p>
-              {!dbValidation.databaseExists && (
+              {databaseType === "mysql" && dbValidation.version && (
+                <p className="text-sm text-muted-foreground">
+                  MySQL 版本: {dbValidation.version}
+                </p>
+              )}
+              {databaseType === "mysql" && !dbValidation.databaseExists && (
                 <div className="flex items-start mt-2 p-2 rounded bg-yellow-500/10 border border-yellow-500/20">
                   <AlertCircle className="w-4 h-4 mr-2 mt-0.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
                   <p className="text-sm text-yellow-600 dark:text-yellow-400">
@@ -560,24 +655,39 @@ export default function SetupPage() {
 
           <div className="space-y-3 p-4 rounded-lg bg-muted/50">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">数据库服务器</span>
-              <span className="font-mono">{dbHost}:{dbPort}</span>
+              <span className="text-muted-foreground">数据库类型</span>
+              <span className="font-medium">
+                {databaseType === "sqlite" ? "SQLite" : "MySQL"}
+              </span>
             </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">数据库用户</span>
-              <span className="font-mono">{dbUsername}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">数据库名称</span>
-              <span className="font-mono">{dbName}</span>
-            </div>
+            {databaseType === "mysql" ? (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">数据库服务器</span>
+                  <span className="font-mono">{dbHost}:{dbPort}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">数据库用户</span>
+                  <span className="font-mono">{dbUsername}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">数据库名称</span>
+                  <span className="font-mono">{dbName}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">数据文件</span>
+                <span className="font-mono">data/clash.db</span>
+              </div>
+            )}
             <div className="flex justify-between text-sm">
               <span className="text-muted-foreground">管理员用户名</span>
               <span>{adminUsername}</span>
             </div>
           </div>
 
-          {!dbValidation.databaseExists && (
+          {databaseType === "mysql" && !dbValidation.databaseExists && (
             <div className="flex items-start p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
               <AlertCircle className="w-4 h-4 mr-2 mt-0.5 text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
               <p className="text-sm text-yellow-600 dark:text-yellow-400">
@@ -625,7 +735,7 @@ export default function SetupPage() {
 
   // 步骤标题
   const stepTitles = {
-    1: { title: "数据库配置", desc: "配置 MySQL 数据库连接" },
+    1: { title: "数据库配置", desc: databaseType === "sqlite" ? "选择 SQLite 数据库" : "配置 MySQL 数据库连接" },
     2: { title: "管理员配置", desc: "设置管理员账号和密码" },
     3: { title: "确认初始化", desc: "检查配置并完成初始化" },
   };

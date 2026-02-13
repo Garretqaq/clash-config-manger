@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         templateId,
-        nodeMapping,
+        nodeMapping: JSON.stringify(nodeMapping),
         content,
       },
     })
@@ -195,7 +195,7 @@ export async function PUT(request: NextRequest) {
       data: {
         name: name || existingConfig.name,
         templateId: templateId || existingConfig.templateId,
-        nodeMapping,
+        nodeMapping: JSON.stringify(nodeMapping),
         content,
       },
     })

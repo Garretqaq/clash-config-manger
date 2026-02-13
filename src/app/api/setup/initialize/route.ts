@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { executeInitialization } from "@/lib/setup";
-import { isInitialized } from "@/lib/config";
+import { executeSqliteInitialization, executeMysqlInitialization } from "@/lib/setup";
+import { isInitialized, getDatabaseUrl } from "@/lib/config";
 import { generateToken, setAuthCookie } from "@/lib/auth";
 import { exec } from "child_process";
 import { promisify } from "util";
@@ -23,15 +23,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { database, admin } = body;
-
-    // 验证数据库配置
-    if (!database || !database.host || !database.username || !database.database) {
-      return NextResponse.json(
-        { error: "请提供完整的数据库配置" },
-        { status: 400 }
-      );
-    }
+    const { databaseType, database, admin } = body;
 
     // 验证管理员配置
     if (!admin || !admin.username || admin.username.length < 3) {
@@ -48,20 +40,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 执行初始化（创建数据库、写入配置）
-    const initResult = await executeInitialization({
-      database: {
-        host: database.host,
-        port: parseInt(database.port) || 3306,
-        username: database.username,
-        password: database.password || "",
-        database: database.database,
-      },
-      admin: {
-        username: admin.username,
-        password: admin.password,
-      },
-    });
+    let initResult: { success: boolean; error?: string; step?: string };
+
+    if (databaseType === "sqlite") {
+      // SQLite 初始化
+      initResult = await executeSqliteInitialization({ admin });
+    } else if (databaseType === "mysql") {
+      // MySQL 初始化 - 验证数据库配置
+      if (!database || !database.host || !database.username || !database.database) {
+        return NextResponse.json(
+          { error: "请提供完整的数据库配置" },
+          { status: 400 }
+        );
+      }
+
+      initResult = await executeMysqlInitialization({
+        database: {
+          host: database.host,
+          port: parseInt(database.port) || 3306,
+          username: database.username,
+          password: database.password || "",
+          database: database.database,
+        },
+        admin,
+      });
+    } else {
+      return NextResponse.json(
+        { error: "不支持的数据库类型" },
+        { status: 400 }
+      );
+    }
 
     if (!initResult.success) {
       return NextResponse.json(
@@ -74,18 +82,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 设置数据库 URL 环境变量（供 Prisma 使用）
+    process.env.DATABASE_URL = getDatabaseUrl();
+
     // 执行 Prisma 命令
     try {
       // 生成 Prisma 客户端
       await execAsync("npx prisma generate", {
         cwd: process.cwd(),
         timeout: 60000,
+        env: { ...process.env, DATABASE_URL: getDatabaseUrl() },
       });
 
       // 推送数据库结构
       await execAsync("npx prisma db push --accept-data-loss", {
         cwd: process.cwd(),
         timeout: 120000,
+        env: { ...process.env, DATABASE_URL: getDatabaseUrl() },
       });
     } catch (prismaError: unknown) {
       const error = prismaError as { message?: string; stderr?: string };
@@ -105,7 +118,7 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       success: true,
       message: "初始化完成",
-      databaseName: database.database,
+      databaseType,
     });
 
     // 设置认证 cookie，这样用户无需再次登录
