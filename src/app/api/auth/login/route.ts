@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateToken, setAuthCookie, getCurrentUser, LOGIN_MAX_ATTEMPTS } from "@/lib/auth";
+import { generateToken, setAuthCookie, getCurrentUser, getLoginMaxAttempts, validateAdminCredentials } from "@/lib/auth";
 import { verifyCaptcha, generateCaptcha } from "@/lib/captcha";
 
 // Force Node.js runtime for JWT support
@@ -11,7 +11,6 @@ export const dynamic = "force-dynamic";
 // Login attempt tracking (in-memory, will reset on server restart)
 const loginAttempts = new Map<string, { count: number; lastAttempt: number }>();
 const ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutes
-const MAX_ATTEMPTS = LOGIN_MAX_ATTEMPTS;
 
 function getClientIdentifier(request: NextRequest): string {
   const ip = request.headers.get("x-forwarded-for") || "unknown";
@@ -19,16 +18,16 @@ function getClientIdentifier(request: NextRequest): string {
   return `${ip}-${userAgent}`;
 }
 
-function getLoginAttempts(key: string): number {
+function getLoginAttemptsCount(key: string): number {
   const attempt = loginAttempts.get(key);
   if (!attempt) return 0;
-  
+
   // Reset if window has passed
   if (Date.now() - attempt.lastAttempt > ATTEMPT_WINDOW) {
     loginAttempts.delete(key);
     return 0;
   }
-  
+
   return attempt.count;
 }
 
@@ -47,32 +46,33 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { username, password, captchaId, captchaCode } = body;
-    
+
     if (!username || !password) {
       return NextResponse.json(
         { error: "用户名和密码不能为空" },
         { status: 400 }
       );
     }
-    
+
     const clientId = getClientIdentifier(request);
-    const attemptCount = getLoginAttempts(clientId);
-    
+    const attemptCount = getLoginAttemptsCount(clientId);
+    const maxAttempts = getLoginMaxAttempts();
+
     // Check if captcha is required
-    if (attemptCount >= MAX_ATTEMPTS) {
+    if (attemptCount >= maxAttempts) {
       if (!captchaId || !captchaCode) {
         return NextResponse.json(
-          { 
+          {
             error: "验证码错误，请重新输入",
             requireCaptcha: true,
           },
           { status: 400 }
         );
       }
-      
+
       if (!verifyCaptcha(captchaId, captchaCode)) {
         return NextResponse.json(
-          { 
+          {
             error: "验证码错误，请重新输入",
             requireCaptcha: true,
           },
@@ -80,21 +80,18 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    
-    // Verify credentials
-    const adminUsername = process.env.ADMIN_USERNAME || "admin";
-    const adminPassword = process.env.ADMIN_PASSWORD || "admin123";
-    
-    if (username !== adminUsername || password !== adminPassword) {
+
+    // Verify credentials using config
+    if (!validateAdminCredentials(username, password)) {
       incrementLoginAttempts(clientId);
-      
-      const remainingAttempts = MAX_ATTEMPTS - getLoginAttempts(clientId);
-      
+
+      const remainingAttempts = maxAttempts - getLoginAttemptsCount(clientId);
+
       if (remainingAttempts <= 0) {
         // Generate new captcha for next attempt
         const newCaptcha = generateCaptcha();
         return NextResponse.json(
-          { 
+          {
             error: "用户名或密码错误",
             requireCaptcha: true,
             captchaId: newCaptcha.captchaId,
@@ -103,16 +100,16 @@ export async function POST(request: NextRequest) {
           { status: 401 }
         );
       }
-      
+
       return NextResponse.json(
-        { 
+        {
           error: `用户名或密码错误，还剩 ${remainingAttempts} 次尝试机会`,
           remainingAttempts,
         },
         { status: 401 }
       );
     }
-    
+
     // Check if already logged in
     const currentUser = await getCurrentUser(request);
     if (currentUser?.username === username) {
@@ -123,17 +120,17 @@ export async function POST(request: NextRequest) {
         user: { username },
       });
     }
-    
+
     // Generate token and set cookie
     const token = await generateToken(username);
     resetLoginAttempts(clientId);
-    
+
     const response = NextResponse.json({
       success: true,
       message: "登录成功",
       user: { username },
     });
-    
+
     setAuthCookie(response, token);
     return response;
   } catch (error) {

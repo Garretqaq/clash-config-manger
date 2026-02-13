@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Lock, User, RefreshCw, LayoutDashboard, ArrowRight, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 
 function LoginForm() {
   const router = useRouter();
@@ -21,9 +22,29 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [requireCaptcha, setRequireCaptcha] = useState(false);
+  const [checkingInit, setCheckingInit] = useState(true);
 
   // Get redirect URL from query params or default to /nodes
   const callbackUrl = searchParams.get("callbackUrl") || "/nodes";
+
+  // 检查系统初始化状态
+  useEffect(() => {
+    const checkInitStatus = async () => {
+      try {
+        const response = await fetch("/api/setup/status");
+        const data = await response.json();
+        if (!data.initialized) {
+          router.replace("/setup");
+          return;
+        }
+      } catch (error) {
+        console.error("Failed to check init status:", error);
+      } finally {
+        setCheckingInit(false);
+      }
+    };
+    checkInitStatus();
+  }, [router]);
 
   useEffect(() => {
     // If already authenticated, redirect to callback URL or nodes page
@@ -77,12 +98,17 @@ function LoginForm() {
     }
   };
 
-  if (isLoading) {
+  if (isLoading || checkingInit) {
     return null; // Or a simple spinner
   }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden bg-background">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-20">
+        <ThemeToggle />
+      </div>
+
       {/* Background Pattern */}
       <div className="absolute inset-0 z-0 bg-dot-pattern opacity-50 pointer-events-none" />
       

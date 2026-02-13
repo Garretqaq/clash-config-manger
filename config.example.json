@@ -1,0 +1,21 @@
+{
+  "initialized": false,
+  "database": {
+    "host": "localhost",
+    "port": 3306,
+    "username": "root",
+    "password": "",
+    "database": "clash_config"
+  },
+  "admin": {
+    "username": "admin",
+    "password": "admin123"
+  },
+  "jwt": {
+    "secret": ""
+  },
+  "session": {
+    "maxLoginAttempts": 3,
+    "expiryDays": 7
+  }
+}
