@@ -1,67 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 
-// 临时调试 API：检查所有可能包含 JSON 的字段
+// 临时调试 API：模拟 share API 的查询
 export async function GET(request: NextRequest) {
   try {
-    // 检查 ProxyNode
+    // 获取 shareLink
+    const shareLinks = await prisma.shareLink.findMany()
+    const shareLink = shareLinks[0]
+
+    if (!shareLink || !shareLink.configId) {
+      return NextResponse.json({ error: 'No share link found' })
+    }
+
+    // 获取 config
+    const config = await prisma.config.findUnique({
+      where: { id: shareLink.configId },
+    })
+
+    if (!config) {
+      return NextResponse.json({ error: 'Config not found' })
+    }
+
+    // 解析 nodeMapping
+    let nodeMapping: Record<string, unknown> = {}
+    try {
+      nodeMapping = typeof config.nodeMapping === 'string'
+        ? JSON.parse(config.nodeMapping)
+        : config.nodeMapping
+    } catch (e) {
+      return NextResponse.json({ error: 'Failed to parse nodeMapping', detail: String(e) })
+    }
+
+    // 提取节点 ID
+    const allNodeIds = Object.values(nodeMapping)
+      .flat()
+      .filter((item): item is string => typeof item === 'string')
+
+    // 查询节点
     const nodes = await prisma.proxyNode.findMany({
-      select: { id: true, name: true, type: true, config: true },
+      where: {
+        id: { in: allNodeIds },
+      },
     })
-
-    const nodeResults = nodes.map((node) => {
-      let isValid = true
-      let error = null
-      if (!node.config || node.config === '{}') {
-        isValid = false
-        error = 'empty'
-      } else {
-        try { JSON.parse(node.config) } catch (e) { isValid = false; error = String(e) }
-      }
-      return { id: node.id, name: node.name, table: 'ProxyNode', isValid, error }
-    })
-
-    // 检查 Config
-    const configs = await prisma.config.findMany({
-      select: { id: true, name: true, nodeMapping: true },
-    })
-
-    const configResults = configs.map((c) => {
-      let isValid = true
-      let error = null
-      if (!c.nodeMapping || c.nodeMapping === '{}') {
-        isValid = false
-        error = 'empty'
-      } else {
-        try { JSON.parse(c.nodeMapping) } catch (e) { isValid = false; error = String(e) }
-      }
-      return { id: c.id, name: c.name, table: 'Config', isValid, error }
-    })
-
-    // 检查 ShareLink
-    const shareLinks = await prisma.shareLink.findMany({
-      select: { id: true, shareId: true, configId: true, accessToken: true },
-    })
-
-    // 检查 Template
-    const templates = await prisma.template.findMany({
-      select: { id: true, name: true },
-    })
-
-    const allResults = [...nodeResults, ...configResults]
-    const invalidItems = allResults.filter((r) => !r.isValid)
 
     return NextResponse.json({
-      nodesTotal: nodes.length,
-      configsTotal: configs.length,
-      shareLinksTotal: shareLinks.length,
-      templatesTotal: templates.length,
-      shareLinks: shareLinks.map(s => ({ id: s.id, shareId: s.shareId, configId: s.configId })),
-      invalidCount: invalidItems.length,
-      invalidItems,
+      shareLink: { shareId: shareLink.shareId, configId: shareLink.configId, isDynamic: shareLink.isDynamic },
+      nodeMapping,
+      allNodeIds,
+      nodesFound: nodes.length,
+      nodes: nodes.map(n => ({ id: n.id, name: n.name })),
     })
-  } catch (error) {
-    console.error('Debug error:', error)
-    return NextResponse.json({ error: String(error) }, { status: 500 })
+  } catch (error: unknown) {
+    const err = error as { message?: string; code?: string }
+    return NextResponse.json({
+      error: 'Query failed',
+      message: err.message,
+      code: err.code,
+    }, { status: 500 })
   }
 }
