@@ -53,12 +53,12 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # 安装 OpenSSL 和必要的运行时依赖（Prisma 需要）
 RUN apk add --no-cache openssl libc6-compat
 
-# 创建数据目录并设置权限
-RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
-
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
+
+# 创建数据目录并设置权限
+RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
 # 复制必要的文件
 COPY --from=builder /app/public ./public
