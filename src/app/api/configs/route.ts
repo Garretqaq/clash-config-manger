@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         type: node.type,
         server: node.server,
         port: node.port,
-        config: node.config as unknown as Record<string, unknown>,
+        config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
       }))
     )
 
@@ -161,7 +161,7 @@ export async function PUT(request: NextRequest) {
         type: node.type,
         server: node.server,
         port: node.port,
-        config: node.config as unknown as Record<string, unknown>,
+        config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
       }))
     )
 

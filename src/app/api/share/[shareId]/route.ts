@@ -107,7 +107,7 @@ export async function GET(
           type: node.type,
           server: node.server,
           port: node.port,
-          config: node.config as unknown as Record<string, unknown>,
+          config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
         }))
       )
 

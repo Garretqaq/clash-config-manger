@@ -30,7 +30,13 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(nodes)
+    // 将 config 字符串解析为对象
+    const nodesWithConfig = nodes.map((node) => ({
+      ...node,
+      config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
+    }))
+
+    return NextResponse.json(nodesWithConfig)
   } catch (error) {
     console.error('获取节点失败:', error)
     return NextResponse.json({ error: '获取节点失败' }, { status: 500 })
@@ -49,12 +55,15 @@ export async function POST(request: NextRequest) {
         type,
         server,
         port,
-        config: config || {},
+        config: typeof config === 'string' ? config : JSON.stringify(config || {}),
         groupId,
       },
     })
 
-    return NextResponse.json(node, { status: 201 })
+    return NextResponse.json({
+      ...node,
+      config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
+    }, { status: 201 })
   } catch (error) {
     console.error('创建节点失败:', error)
     return NextResponse.json({ error: '创建节点失败' }, { status: 500 })
@@ -94,12 +103,15 @@ export async function PUT(request: NextRequest) {
           type,
           server,
           port,
-          config: config || {},
+          config: typeof config === 'string' ? config : JSON.stringify(config || {}),
           groupId: groupId || null,
         },
       })
 
-      return NextResponse.json(updatedNode)
+      return NextResponse.json({
+        ...updatedNode,
+        config: typeof updatedNode.config === 'string' ? JSON.parse(updatedNode.config) : updatedNode.config,
+      })
     } else {
       return NextResponse.json({ error: '无效的请求参数' }, { status: 400 })
     }
