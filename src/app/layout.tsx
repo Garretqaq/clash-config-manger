@@ -42,17 +42,18 @@ export default function RootLayout({
               (function() {
                 try {
                   var stored = localStorage.getItem('theme-storage');
-                  var theme = 'dark';
+                  var theme = 'system';
                   if (stored) {
                     var parsed = JSON.parse(stored);
-                    theme = parsed.state?.theme || 'dark';
+                    theme = parsed.state?.theme || 'system';
                   }
                   if (theme === 'system') {
                     theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                   }
                   document.documentElement.classList.add(theme);
                 } catch (e) {
-                  document.documentElement.classList.add('dark');
+                  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                  document.documentElement.classList.add(prefersDark ? 'dark' : 'light');
                 }
               })();
             `,

@@ -88,7 +88,16 @@ export async function GET(
       }
 
       // Extract node IDs from nodeMapping (handle both node IDs and group references)
-      const nodeMapping = config.nodeMapping as unknown as Record<string, Array<string | { type: 'group'; name: string }>>
+      // nodeMapping 在数据库中是 JSON 字符串，需要先解析
+      let nodeMapping: Record<string, Array<string | { type: 'group'; name: string }>> = {}
+      try {
+        nodeMapping = typeof config.nodeMapping === 'string'
+          ? JSON.parse(config.nodeMapping)
+          : config.nodeMapping
+      } catch (e) {
+        console.error('Failed to parse nodeMapping:', e)
+        return new NextResponse('配置数据格式错误', { status: 500 })
+      }
       const allNodeIds = Object.values(nodeMapping)
         .flat()
         .filter((item): item is string => typeof item === 'string')

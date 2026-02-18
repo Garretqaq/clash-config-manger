@@ -5,15 +5,10 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
 }
 
-// 动态设置数据库 URL
-function setupDatabaseUrl(): void {
-  if (isInitialized()) {
-    process.env.DATABASE_URL = getDatabaseUrl();
-  }
+// 初始化后从 config.json 读取数据库配置
+if (isInitialized()) {
+  process.env.DATABASE_URL = getDatabaseUrl();
 }
-
-// 在创建 PrismaClient 之前设置数据库 URL
-setupDatabaseUrl();
 
 export const prisma = globalForPrisma.prisma ?? new PrismaClient()
 
