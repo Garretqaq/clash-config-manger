@@ -76,13 +76,26 @@ export async function POST(request: NextRequest) {
 
     // 转换节点格式
     const proxies = ClashGenerator.generateProxies(
-      nodes.map((node) => ({
-        name: node.name,
-        type: node.type,
-        server: node.server,
-        port: node.port,
-        config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
-      }))
+      nodes.map((node) => {
+        // 安全解析 config，处理无效的 JSON 字符串
+        let parsedConfig: Record<string, unknown> = {}
+        if (node.config) {
+          try {
+            parsedConfig = typeof node.config === 'string'
+              ? JSON.parse(node.config)
+              : node.config
+          } catch (e) {
+            console.error(`Failed to parse config for node ${node.id}:`, e)
+          }
+        }
+        return {
+          name: node.name,
+          type: node.type,
+          server: node.server,
+          port: node.port,
+          config: parsedConfig,
+        }
+      })
     )
 
     // 构建节点名称映射 (处理节点ID和分组引用)
@@ -166,13 +179,26 @@ export async function PUT(request: NextRequest) {
 
     // 转换节点格式
     const proxies = ClashGenerator.generateProxies(
-      nodes.map((node) => ({
-        name: node.name,
-        type: node.type,
-        server: node.server,
-        port: node.port,
-        config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
-      }))
+      nodes.map((node) => {
+        // 安全解析 config，处理无效的 JSON 字符串
+        let parsedConfig: Record<string, unknown> = {}
+        if (node.config) {
+          try {
+            parsedConfig = typeof node.config === 'string'
+              ? JSON.parse(node.config)
+              : node.config
+          } catch (e) {
+            console.error(`Failed to parse config for node ${node.id}:`, e)
+          }
+        }
+        return {
+          name: node.name,
+          type: node.type,
+          server: node.server,
+          port: node.port,
+          config: parsedConfig,
+        }
+      })
     )
 
     // 构建节点名称映射 (处理节点ID和分组引用)

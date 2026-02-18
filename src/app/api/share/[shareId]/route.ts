@@ -102,13 +102,26 @@ export async function GET(
 
       // Generate proxy configurations with latest node data
       const proxies = ClashGenerator.generateProxies(
-        nodes.map((node) => ({
-          name: node.name,
-          type: node.type,
-          server: node.server,
-          port: node.port,
-          config: typeof node.config === 'string' ? JSON.parse(node.config) : node.config,
-        }))
+        nodes.map((node) => {
+          // 安全解析 config，处理无效的 JSON 字符串
+          let parsedConfig: Record<string, unknown> = {}
+          if (node.config) {
+            try {
+              parsedConfig = typeof node.config === 'string'
+                ? JSON.parse(node.config)
+                : node.config
+            } catch (e) {
+              console.error(`Failed to parse config for node ${node.id}:`, e)
+            }
+          }
+          return {
+            name: node.name,
+            type: node.type,
+            server: node.server,
+            port: node.port,
+            config: parsedConfig,
+          }
+        })
       )
 
       // Build node name mapping (handle node IDs and group references)
