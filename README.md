@@ -103,6 +103,12 @@ docker build -t clash-config-manage .
 
 ### 运行容器
 
+首次运行前，确保本地数据目录存在且有权限：
+
+```bash
+mkdir -p ./data
+```
+
 **使用 SQLite（无需额外配置）：**
 
 ```bash
@@ -122,6 +128,12 @@ docker run -d \
   -v ./data:/app/data \
   clash-config-manage
 ```
+
+> **注意**：如果遇到权限问题，可尝试先创建目录并设置权限：
+> ```bash
+> mkdir -p ./data
+> chmod 777 ./data
+> ```
 
 首次启动后，访问 http://localhost:3000/setup 初始化数据库配置。
 
