@@ -93,6 +93,46 @@ npm run dev
 
 访问 http://localhost:3000
 
+## Docker 部署
+
+### 构建镜像
+
+```bash
+docker build -t clash-config-manage .
+```
+
+### 运行容器
+
+**使用 SQLite（无需额外配置）：**
+
+```bash
+docker run -d \
+  --name clash-config-manage \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  clash-config-manage
+```
+
+**使用 MySQL：**
+
+```bash
+docker run -d \
+  --name clash-config-manage \
+  -p 3000:3000 \
+  -v ./data:/app/data \
+  clash-config-manage
+```
+
+首次启动后，访问 http://localhost:3000/setup 初始化数据库配置。
+
+### 数据持久化
+
+| 路径 | 说明 |
+|------|------|
+| `/app/data` | 配置目录（包含 `config.json` 和 SQLite 数据库 `clash.db`） |
+
+首次运行后，会在挂载目录生成 `config.json` 配置文件。
+
 ## 数据库设计
 
 ### ProxyNode (代理节点)
