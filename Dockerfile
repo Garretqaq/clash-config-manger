@@ -51,7 +51,7 @@ ENV NODE_ENV production
 ENV NEXT_TELEMETRY_DISABLED 1
 
 # 安装 OpenSSL 和必要的运行时依赖（Prisma 需要）
-RUN apk add --no-cache openssl libc6-compat
+RUN apk add --no-cache openssl openssl-dev libc6-compat
 
 # 创建非 root 用户
 RUN addgroup --system --gid 1001 nodejs
