@@ -38,12 +38,25 @@ export async function GET(request: NextRequest) {
       return { id: c.id, name: c.name, table: 'Config', isValid, error }
     })
 
+    // 检查 ShareLink
+    const shareLinks = await prisma.shareLink.findMany({
+      select: { id: true, shareId: true, configId: true, accessToken: true },
+    })
+
+    // 检查 Template
+    const templates = await prisma.template.findMany({
+      select: { id: true, name: true },
+    })
+
     const allResults = [...nodeResults, ...configResults]
     const invalidItems = allResults.filter((r) => !r.isValid)
 
     return NextResponse.json({
       nodesTotal: nodes.length,
       configsTotal: configs.length,
+      shareLinksTotal: shareLinks.length,
+      templatesTotal: templates.length,
+      shareLinks: shareLinks.map(s => ({ id: s.id, shareId: s.shareId, configId: s.configId })),
       invalidCount: invalidItems.length,
       invalidItems,
     })
