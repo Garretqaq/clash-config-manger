@@ -166,13 +166,14 @@ export async function GET(
     }
 
     // Return raw YAML content
-    const safeFileName = configName.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fa5]/g, '_')
-    const encodedFileName = encodeURIComponent(safeFileName)
+    // filename 字段只支持 ASCII 字符，filename* 支持 UTF-8 编码
+    const asciiFileName = configName.replace(/[^a-zA-Z0-9_\-]/g, '_')
+    const encodedFileName = encodeURIComponent(configName)
     return new NextResponse(configContent, {
       status: 200,
       headers: {
         'Content-Type': 'text/plain; charset=utf-8',
-        'Content-Disposition': `attachment; filename="${safeFileName}.yaml"; filename*=UTF-8''${encodedFileName}.yaml`,
+        'Content-Disposition': `attachment; filename="${asciiFileName}.yaml"; filename*=UTF-8''${encodedFileName}.yaml`,
       },
     })
   } catch (error) {
