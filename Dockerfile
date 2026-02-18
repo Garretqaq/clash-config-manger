@@ -55,6 +55,9 @@ ENV NEXT_TELEMETRY_DISABLED 1
 # 安装 OpenSSL 和必要的运行时依赖（Prisma 需要）
 RUN apk add --no-cache openssl openssl-dev libc6-compat
 
+# 安装 Prisma CLI（运行时数据库迁移需要）
+RUN npm install prisma@5
+
 # 创建数据目录
 RUN mkdir -p /app/data
 

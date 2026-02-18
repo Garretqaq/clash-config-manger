@@ -87,15 +87,18 @@ export async function POST(request: NextRequest) {
 
     // 执行 Prisma 命令
     try {
+      // 使用本地安装的 prisma（避免 npx 安装全局最新版本导致兼容性问题）
+      const prismaBin = "./node_modules/.bin/prisma";
+
       // 生成 Prisma 客户端
-      await execAsync("npx prisma generate", {
+      await execAsync(`${prismaBin} generate`, {
         cwd: process.cwd(),
         timeout: 60000,
         env: { ...process.env, DATABASE_URL: getDatabaseUrl() },
       });
 
       // 推送数据库结构
-      await execAsync("npx prisma db push --accept-data-loss", {
+      await execAsync(`${prismaBin} db push --accept-data-loss`, {
         cwd: process.cwd(),
         timeout: 120000,
         env: { ...process.env, DATABASE_URL: getDatabaseUrl() },
