@@ -48,6 +48,7 @@ export async function middleware(request: NextRequest) {
     "/api/auth/logout",
     "/api/auth/status",
     "/api/setup/status",
+    "/api/debug",
     "/share",
     "/api/share/",
     "/_next",
