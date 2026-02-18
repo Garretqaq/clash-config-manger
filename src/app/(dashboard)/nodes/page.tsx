@@ -218,7 +218,7 @@ export default function NodesPage() {
     ]
 
     // 从原始节点获取完整配置
-    const originalConfig = (editingNode.config as Record<string, unknown>) || {}
+    const originalConfig = (editingNode.config as unknown as Record<string, unknown>) || {}
     const previewConfig: Record<string, unknown> = { ...originalConfig }
 
     // 应用用户的编辑
@@ -265,11 +265,11 @@ export default function NodesPage() {
       } else if (typeof value === 'object' && value !== null) {
         // 嵌套对象格式化为多行 YAML
         configLines.push(`  ${key}:`)
-        Object.entries(value as Record<string, unknown>).forEach(([subKey, subValue]) => {
+        Object.entries(value as unknown as Record<string, unknown>).forEach(([subKey, subValue]) => {
           if (typeof subValue === 'object' && subValue !== null) {
             // headers 等嵌套对象
             configLines.push(`    ${subKey}:`)
-            Object.entries(subValue as Record<string, unknown>).forEach(([k, v]) => {
+            Object.entries(subValue as unknown as Record<string, unknown>).forEach(([k, v]) => {
               configLines.push(`      ${k}: ${v}`)
             })
           } else {
@@ -461,7 +461,7 @@ export default function NodesPage() {
     // 但保留原始 config 以便在提交时合并回去
     const configForEdit: Record<string, string> = {}
     if (node.config) {
-      Object.entries(node.config as Record<string, unknown>).forEach(([key, value]) => {
+      Object.entries(node.config as unknown as Record<string, unknown>).forEach(([key, value]) => {
         // 将数组转换为逗号分隔的字符串以便编辑
         if (Array.isArray(value)) {
           configForEdit[key] = value.join(', ')
@@ -501,7 +501,7 @@ export default function NodesPage() {
     }
 
     // 从原始节点保留完整的 config,然后只更新用户修改的字段
-    const originalConfig = (editingNode.config as Record<string, unknown>) || {}
+    const originalConfig = (editingNode.config as unknown as Record<string, unknown>) || {}
     const config: Record<string, unknown> = { ...originalConfig }
 
     // 处理用户在表单中修改的参数

@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
       type: node.type,
       server: node.server,
       port: node.port,
-      config: node.config as Record<string, unknown>,
+      config: node.config as unknown as Record<string, unknown>,
     }))
 
     const results = await batchTestNodes(nodeData, {
