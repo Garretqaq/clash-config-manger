@@ -323,8 +323,8 @@ export default function SetupPage() {
         <Label>数据库类型</Label>
         <Select
           value={databaseType}
-          onValueChange={(value: DatabaseType) => {
-            setDatabaseType(value);
+          onValueChange={(value) => {
+            setDatabaseType(value as DatabaseType);
             resetDbValidation();
           }}
         >
