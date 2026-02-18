@@ -88,7 +88,7 @@ export async function GET(
       }
 
       // Extract node IDs from nodeMapping (handle both node IDs and group references)
-      const nodeMapping = config.nodeMapping as Record<string, Array<string | { type: 'group'; name: string }>>
+      const nodeMapping = config.nodeMapping as unknown as Record<string, Array<string | { type: 'group'; name: string }>>
       const allNodeIds = Object.values(nodeMapping)
         .flat()
         .filter((item): item is string => typeof item === 'string')
