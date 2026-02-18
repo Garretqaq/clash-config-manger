@@ -12,7 +12,8 @@
       "Bash(python3 scripts/search.py \"toast animation\" --domain ux -n 5)",
       "Bash(npx tsc:*)",
       "Bash(ls:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(npm ls:*)"
     ]
   }
 }

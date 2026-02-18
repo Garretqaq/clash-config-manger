@@ -17,6 +17,8 @@ FROM base AS prisma
 # 安装必要的依赖
 RUN apk add --no-cache libc6-compat openssl openssl-dev
 WORKDIR /app
+# 安装 Prisma 5.x（避免使用 Prisma 7.x 的新配置要求）
+RUN npm install prisma@5 @prisma/client@5
 # 从 deps 阶段复制 node_modules
 COPY --from=deps /app/node_modules ./node_modules
 # 复制 Prisma schema 文件
