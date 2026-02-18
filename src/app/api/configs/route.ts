@@ -21,7 +21,11 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: '配置不存在' }, { status: 404 })
       }
 
-      return NextResponse.json(config)
+      // 解析 nodeMapping 字符串为对象
+      return NextResponse.json({
+        ...config,
+        nodeMapping: typeof config.nodeMapping === 'string' ? JSON.parse(config.nodeMapping) : config.nodeMapping,
+      })
     }
 
     // 获取所有配置
@@ -31,7 +35,13 @@ export async function GET(request: NextRequest) {
       },
     })
 
-    return NextResponse.json(configs)
+    // 解析所有配置的 nodeMapping 字符串为对象
+    const configsWithMapping = configs.map((config) => ({
+      ...config,
+      nodeMapping: typeof config.nodeMapping === 'string' ? JSON.parse(config.nodeMapping) : config.nodeMapping,
+    }))
+
+    return NextResponse.json(configsWithMapping)
   } catch (error) {
     console.error('获取配置失败:', error)
     return NextResponse.json({ error: '获取配置失败' }, { status: 500 })
