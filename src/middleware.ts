@@ -34,10 +34,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(setupUrl);
   }
 
-  // 已初始化后，阻止访问 /setup 页面（但允许 API 检查状态）
+  // 已初始化后，阻止访问 /setup 页面，跳转到首页
   if (pathname === "/setup" || pathname.startsWith("/setup/")) {
-    const loginUrl = new URL("/login", request.url);
-    return NextResponse.redirect(loginUrl);
+    const homeUrl = new URL("/nodes", request.url);
+    return NextResponse.redirect(homeUrl);
   }
 
   // Paths that don't require authentication
