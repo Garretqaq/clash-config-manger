@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useMemo } from "react"
+import { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { DndContext, DragEndEvent, DragOverlay, DragStartEvent } from "@dnd-kit/core"
 import { PageHeader } from "@/components/layout/PageHeader"
 import { Button } from "@/components/ui/button"
@@ -133,6 +133,8 @@ export default function NodesPage() {
   const [showPreview, setShowPreview] = useState(false)
   const [yamlEditText, setYamlEditText] = useState("")
   const [editYamlEditText, setEditYamlEditText] = useState("")
+  const yamlFocused = useRef(false)
+  const editYamlFocused = useRef(false)
   const [newGroupName, setNewGroupName] = useState("")
   const [newNode, setNewNode] = useState<NewNodeForm>({
     name: "",
@@ -308,6 +310,9 @@ export default function NodesPage() {
     return configLines.join("\n")
   }, [editNode, editingNode])
 
+  // 表单 → YAML：表单变化时同步 textarea（textarea 聚焦时跳过，避免覆盖用户输入）
+  useEffect(() => { if (showPreview && !yamlFocused.current) setYamlEditText(yamlPreview) }, [yamlPreview, showPreview])
+  useEffect(() => { if (showEditPreview && !editYamlFocused.current) setEditYamlEditText(editYamlPreview) }, [editYamlPreview, showEditPreview])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -1079,7 +1084,20 @@ export default function NodesPage() {
                   className="mt-3 w-full p-4 bg-zinc-950 rounded-lg text-xs text-zinc-300 font-mono whitespace-pre resize-none outline-none border border-zinc-800 focus:border-zinc-600"
                   rows={Math.max(6, yamlEditText.split("\n").length + 1)}
                   value={yamlEditText}
-                  onChange={(e) => setYamlEditText(e.target.value)}
+                  onFocus={() => { yamlFocused.current = true }}
+                  onBlur={() => { yamlFocused.current = false }}
+                  onChange={(e) => {
+                    setYamlEditText(e.target.value)
+                    const parsed = parseYamlToForm(e.target.value)
+                    setNewNode((prev) => ({
+                      ...prev,
+                      ...(parsed.name !== undefined && { name: parsed.name }),
+                      ...(parsed.type !== undefined && { type: parsed.type }),
+                      ...(parsed.server !== undefined && { server: parsed.server }),
+                      ...(parsed.port !== undefined && { port: parsed.port }),
+                      ...(parsed.params && { params: { ...prev.params, ...parsed.params } }),
+                    }))
+                  }}
                   spellCheck={false}
                 />
               )}
@@ -1239,7 +1257,20 @@ export default function NodesPage() {
                   className="mt-3 w-full p-4 bg-zinc-950 rounded-lg text-xs text-zinc-300 font-mono whitespace-pre resize-none outline-none border border-zinc-800 focus:border-zinc-600"
                   rows={Math.max(6, editYamlEditText.split("\n").length + 1)}
                   value={editYamlEditText}
-                  onChange={(e) => setEditYamlEditText(e.target.value)}
+                  onFocus={() => { editYamlFocused.current = true }}
+                  onBlur={() => { editYamlFocused.current = false }}
+                  onChange={(e) => {
+                    setEditYamlEditText(e.target.value)
+                    const parsed = parseYamlToForm(e.target.value)
+                    setEditNode((prev) => ({
+                      ...prev,
+                      ...(parsed.name !== undefined && { name: parsed.name }),
+                      ...(parsed.type !== undefined && { type: parsed.type }),
+                      ...(parsed.server !== undefined && { server: parsed.server }),
+                      ...(parsed.port !== undefined && { port: parsed.port }),
+                      ...(parsed.params && { params: { ...prev.params, ...parsed.params } }),
+                    }))
+                  }}
                   spellCheck={false}
                 />
               )}
