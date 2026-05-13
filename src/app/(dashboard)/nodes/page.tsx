@@ -421,9 +421,8 @@ export default function NodesPage() {
   }
 
   const handleAddNode = async () => {
-    const formData = showPreview && yamlEditText
-      ? { ...newNode, ...parseYamlToForm(yamlEditText), params: { ...newNode.params, ...(parseYamlToForm(yamlEditText).params || {}) } }
-      : newNode
+    const parsed = yamlEditText ? parseYamlToForm(yamlEditText) : {}
+    const formData = { ...newNode, ...parsed, params: { ...newNode.params, ...(parsed.params || {}) } }
     if (!formData.name.trim() || !formData.server.trim() || !formData.port.trim()) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
@@ -519,9 +518,8 @@ export default function NodesPage() {
   }
 
   const handleEditNode = async () => {
-    const formData = showEditPreview && editYamlEditText
-      ? { ...editNode, ...parseYamlToForm(editYamlEditText), params: { ...editNode.params, ...(parseYamlToForm(editYamlEditText).params || {}) } }
-      : editNode
+    const parsed = editYamlEditText ? parseYamlToForm(editYamlEditText) : {}
+    const formData = { ...editNode, ...parsed, params: { ...editNode.params, ...(parsed.params || {}) } }
     if (!editingNode || !formData.name.trim() || !formData.server.trim() || !formData.port.trim()) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
