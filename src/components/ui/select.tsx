@@ -3,101 +3,84 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+// Context to pass value/onValueChange down from Select to SelectTrigger
+interface SelectContextValue {
   value?: string
   onValueChange?: (value: string) => void
+  children?: React.ReactNode // SelectContent children (options)
+}
+const SelectContext = React.createContext<SelectContextValue>({})
+
+interface SelectProps {
+  value?: string
+  onValueChange?: (value: string) => void
+  children?: React.ReactNode
 }
 
-const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ className, value, onValueChange, children, ...props }, ref) => {
-    return (
-      <select
-        value={value}
-        onChange={(e) => onValueChange?.(e.target.value)}
-        className={cn(
-          "flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
-          className
-        )}
-        ref={ref}
-        {...props}
-      >
-        {children}
-      </select>
-    )
-  }
-)
-Select.displayName = "Select"
+function Select({ value, onValueChange, children }: SelectProps) {
+  // Separate SelectTrigger and SelectContent children
+  let triggerChild: React.ReactNode = null
+  let contentChild: React.ReactNode = null
+  React.Children.forEach(children, (child) => {
+    if (!React.isValidElement(child)) return
+    const type = child.type as { displayName?: string }
+    if (type.displayName === "SelectTrigger") triggerChild = child
+    if (type.displayName === "SelectContent") contentChild = child
+  })
+
+  return (
+    <SelectContext.Provider value={{ value, onValueChange, children: contentChild }}>
+      {triggerChild}
+    </SelectContext.Provider>
+  )
+}
 
 const SelectTrigger = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement> & { value?: string; onValueChange?: (value: string) => void }
->(({ className, children, value, onValueChange, ...props }, ref) => {
+  HTMLSelectElement,
+  React.HTMLAttributes<HTMLSelectElement> & { id?: string }
+>(({ className, id }, ref) => {
+  const { value, onValueChange, children } = React.useContext(SelectContext)
+  // Extract <option> elements from SelectContent > SelectItem
+  const options: React.ReactNode[] = []
+  if (React.isValidElement(children)) {
+    const content = children as React.ReactElement<{ children?: React.ReactNode }>
+    React.Children.forEach(content.props.children, (opt) => {
+      options.push(opt)
+    })
+  }
+
   return (
-    <div
+    <select
       ref={ref}
-      className={cn("relative", className)}
-      {...props}
+      id={id}
+      value={value ?? ""}
+      onChange={(e) => onValueChange?.(e.target.value)}
+      className={cn(
+        "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
     >
-      <Select value={value} onValueChange={onValueChange}>
-        {children}
-      </Select>
-    </div>
+      {options}
+    </select>
   )
 })
 SelectTrigger.displayName = "SelectTrigger"
 
-const SelectContent = React.forwardRef<
-  HTMLDivElement,
-  React.HTMLAttributes<HTMLDivElement>
->(({ className, children, ...props }, ref) => {
-  return (
-    <div
-      ref={ref}
-      className={cn(
-        "relative z-50 min-w-[8rem] overflow-hidden rounded-md border bg-background text-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </div>
-  )
-})
+const SelectContent = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
+  ({ children }, ref) => <div ref={ref} style={{ display: "none" }}>{children}</div>
+)
 SelectContent.displayName = "SelectContent"
 
-const SelectItem = React.forwardRef<
-  HTMLOptionElement,
-  React.OptionHTMLAttributes<HTMLOptionElement>
->(({ className, children, ...props }, ref) => {
-  return (
-    <option
-      ref={ref}
-      className={cn(
-        "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-accent focus:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </option>
+const SelectItem = React.forwardRef<HTMLOptionElement, React.OptionHTMLAttributes<HTMLOptionElement>>(
+  ({ className, children, ...props }, ref) => (
+    <option ref={ref} {...props}>{children}</option>
   )
-})
+)
 SelectItem.displayName = "SelectItem"
 
-const SelectValue = React.forwardRef<
-  HTMLSpanElement,
-  React.HTMLAttributes<HTMLSpanElement> & { placeholder?: string }
->(({ className, children, placeholder, ...props }, ref) => {
-  return (
-    <span
-      ref={ref}
-      className={cn("truncate", !children && "text-muted-foreground", className)}
-      {...props}
-    >
-      {children || placeholder}
-    </span>
-  )
-})
+const SelectValue = React.forwardRef<HTMLSpanElement, React.HTMLAttributes<HTMLSpanElement> & { placeholder?: string }>(
+  (_props, _ref) => null // rendered inside select natively; no-op
+)
 SelectValue.displayName = "SelectValue"
 
 export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
