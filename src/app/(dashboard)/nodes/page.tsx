@@ -131,6 +131,8 @@ export default function NodesPage() {
   const [showEditPreview, setShowEditPreview] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [yamlEditText, setYamlEditText] = useState("")
+  const [editYamlEditText, setEditYamlEditText] = useState("")
   const [newGroupName, setNewGroupName] = useState("")
   const [newNode, setNewNode] = useState<NewNodeForm>({
     name: "",
@@ -182,6 +184,27 @@ export default function NodesPage() {
     })
     setGroupNodeMapping(mapping)
   }, [nodes])
+
+  // 解析 YAML 文本回表单状态
+  const parseYamlToForm = (yaml: string): Partial<NewNodeForm> => {
+    const lines = yaml.split("\n")
+    const result: Partial<NewNodeForm> = { params: {} }
+    const coreKeys = new Set(["name", "type", "server", "port"])
+    for (const line of lines) {
+      const match = line.match(/^-?\s{0,2}(\S+):\s*(.*)$/)
+      if (!match) continue
+      const [, key, val] = match
+      const v = val.trim().replace(/^"(.*)"$/, "$1")
+      if (key === "name") result.name = v
+      else if (key === "type") result.type = v as ProxyType
+      else if (key === "server") result.server = v
+      else if (key === "port") result.port = v
+      else if (!coreKeys.has(key) && !key.startsWith("-")) {
+        result.params![key] = v
+      }
+    }
+    return result
+  }
 
   // 生成 YAML 预览
   const yamlPreview = useMemo(() => {
@@ -284,6 +307,10 @@ export default function NodesPage() {
 
     return configLines.join("\n")
   }, [editNode, editingNode])
+
+  // 展开预览时初始化 textarea 内容
+  useEffect(() => { if (showPreview) setYamlEditText(yamlPreview) }, [showPreview]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (showEditPreview) setEditYamlEditText(editYamlPreview) }, [showEditPreview]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -1048,11 +1075,24 @@ export default function NodesPage() {
               </Button>
 
               {showPreview && (
-                <div className="mt-3 p-4 bg-zinc-950 rounded-lg overflow-x-auto">
-                  <pre className="text-xs text-zinc-300 font-mime whitespace-pre-wrap">
-                    <code>{yamlPreview}</code>
-                  </pre>
-                </div>
+                <textarea
+                  className="mt-3 w-full p-4 bg-zinc-950 rounded-lg text-xs text-zinc-300 font-mono whitespace-pre resize-none outline-none border border-zinc-800 focus:border-zinc-600"
+                  rows={Math.max(6, yamlEditText.split("\n").length + 1)}
+                  value={yamlEditText}
+                  onChange={(e) => {
+                    setYamlEditText(e.target.value)
+                    const parsed = parseYamlToForm(e.target.value)
+                    setNewNode((prev) => ({
+                      ...prev,
+                      ...(parsed.name !== undefined && { name: parsed.name }),
+                      ...(parsed.type !== undefined && { type: parsed.type }),
+                      ...(parsed.server !== undefined && { server: parsed.server }),
+                      ...(parsed.port !== undefined && { port: parsed.port }),
+                      params: { ...prev.params, ...parsed.params },
+                    }))
+                  }}
+                  spellCheck={false}
+                />
               )}
             </div>
           </div>
@@ -1203,11 +1243,24 @@ export default function NodesPage() {
               </Button>
 
               {showEditPreview && (
-                <div className="mt-3 p-4 bg-zinc-950 rounded-lg overflow-x-auto">
-                  <pre className="text-xs text-zinc-300 font-mono whitespace-pre-wrap">
-                    <code>{editYamlPreview}</code>
-                  </pre>
-                </div>
+                <textarea
+                  className="mt-3 w-full p-4 bg-zinc-950 rounded-lg text-xs text-zinc-300 font-mono whitespace-pre resize-none outline-none border border-zinc-800 focus:border-zinc-600"
+                  rows={Math.max(6, editYamlEditText.split("\n").length + 1)}
+                  value={editYamlEditText}
+                  onChange={(e) => {
+                    setEditYamlEditText(e.target.value)
+                    const parsed = parseYamlToForm(e.target.value)
+                    setEditNode((prev) => ({
+                      ...prev,
+                      ...(parsed.name !== undefined && { name: parsed.name }),
+                      ...(parsed.type !== undefined && { type: parsed.type }),
+                      ...(parsed.server !== undefined && { server: parsed.server }),
+                      ...(parsed.port !== undefined && { port: parsed.port }),
+                      params: { ...prev.params, ...parsed.params },
+                    }))
+                  }}
+                  spellCheck={false}
+                />
               )}
             </div>
           </div>
