@@ -421,12 +421,15 @@ export default function NodesPage() {
   }
 
   const handleAddNode = async () => {
-    if (!newNode.name.trim() || !newNode.server.trim() || !newNode.port.trim()) {
+    const formData = showPreview && yamlEditText
+      ? { ...newNode, ...parseYamlToForm(yamlEditText), params: { ...newNode.params, ...(parseYamlToForm(yamlEditText).params || {}) } }
+      : newNode
+    if (!formData.name.trim() || !formData.server.trim() || !formData.port.trim()) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
     }
 
-    const port = parseInt(newNode.port, 10)
+    const port = parseInt(formData.port, 10)
     if (isNaN(port) || port <= 0 || port > 65535) {
       showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
       return
@@ -434,10 +437,9 @@ export default function NodesPage() {
 
     // 构建配置对象
     const config: Record<string, unknown> = {}
-    Object.entries(newNode.params).forEach(([key, value]) => {
+    Object.entries(formData.params).forEach(([key, value]) => {
       const strValue = String(value || "")
       if (strValue.trim()) {
-        // 处理布尔值
         if (strValue.toLowerCase() === "true") config[key] = true
         else if (strValue.toLowerCase() === "false") config[key] = false
         else config[key] = strValue
@@ -449,11 +451,11 @@ export default function NodesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: newNode.name,
-          type: newNode.type,
-          server: newNode.server,
+          name: formData.name,
+          type: formData.type,
+          server: formData.server,
           port,
-          groupId: newNode.groupId || null,
+          groupId: formData.groupId || null,
           config,
         }),
       })
@@ -462,15 +464,14 @@ export default function NodesPage() {
 
       const node = await res.json()
       setNodes((prev) => [node, ...prev])
-      // 如果指定了分组,同步更新 groupNodeMapping
-      if (newNode.groupId) {
+      if (formData.groupId) {
         setGroupNodeMapping((prev) => {
           const updated = { ...prev }
-          if (!updated[newNode.groupId]) {
-            updated[newNode.groupId] = new Set()
+          if (!updated[formData.groupId]) {
+            updated[formData.groupId] = new Set()
           }
-          updated[newNode.groupId] = new Set(updated[newNode.groupId])
-          updated[newNode.groupId].add(node.id)
+          updated[formData.groupId] = new Set(updated[formData.groupId])
+          updated[formData.groupId].add(node.id)
           return updated
         })
       }
@@ -518,49 +519,36 @@ export default function NodesPage() {
   }
 
   const handleEditNode = async () => {
-    if (!editingNode || !editNode.name.trim() || !editNode.server.trim() || !editNode.port.trim()) {
+    const formData = showEditPreview && editYamlEditText
+      ? { ...editNode, ...parseYamlToForm(editYamlEditText), params: { ...editNode.params, ...(parseYamlToForm(editYamlEditText).params || {}) } }
+      : editNode
+    if (!editingNode || !formData.name.trim() || !formData.server.trim() || !formData.port.trim()) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
     }
 
-    const port = parseInt(editNode.port, 10)
+    const port = parseInt(formData.port, 10)
     if (isNaN(port) || port <= 0 || port > 65535) {
       showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
       return
     }
 
-    // 从原始节点保留完整的 config,然后只更新用户修改的字段
     const originalConfig = (editingNode.config as unknown as Record<string, unknown>) || {}
     const config: Record<string, unknown> = { ...originalConfig }
 
-    // 处理用户在表单中修改的参数
-    Object.entries(editNode.params).forEach(([key, value]) => {
+    Object.entries(formData.params).forEach(([key, value]) => {
       const strValue = String(value || "")
-
-      // 如果原始配置中该字段是嵌套对象,需要保持对象结构
       const originalValue = originalConfig[key]
       const isOriginalObject = typeof originalValue === 'object' && originalValue !== null && !Array.isArray(originalValue)
-
-      // 检查用户是否标记该字段为对象类型（通过 handleOpenEditNode 设置）
-      const isMarkedAsObject = editNode.params[`__is_object__${key}`] === 'true'
+      const isMarkedAsObject = formData.params[`__is_object__${key}`] === 'true'
 
       if (!strValue.trim()) {
-        // 如果用户清空了字段,从 config 中删除
-        // 同时删除对象标记
         delete config[key]
         delete config[`__is_object__${key}`]
       } else if (Array.isArray(originalValue)) {
-        // 保留数组结构,将逗号分隔的字符串转回数组
         config[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
       } else if (isOriginalObject || isMarkedAsObject) {
-        // 对于嵌套对象（如 ws-opts），解析 JSON 字符串还原为对象
-        try {
-          const parsed = JSON.parse(strValue)
-          config[key] = parsed
-        } catch {
-          // 如果解析失败，保持原始值
-          config[key] = strValue
-        }
+        try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
       } else if (strValue.toLowerCase() === "true") {
         config[key] = true
       } else if (strValue.toLowerCase() === "false") {
@@ -570,12 +558,9 @@ export default function NodesPage() {
       }
     })
 
-    // 过滤掉辅助字段（以 __is_object__ 开头的字段）
     const cleanConfig: Record<string, unknown> = {}
     Object.entries(config).forEach(([key, value]) => {
-      if (!key.startsWith('__is_object__')) {
-        cleanConfig[key] = value
-      }
+      if (!key.startsWith('__is_object__')) cleanConfig[key] = value
     })
 
     try {
@@ -584,43 +569,31 @@ export default function NodesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: editingNode.id,
-          name: editNode.name.trim(),
-          type: editNode.type,
-          server: editNode.server.trim(),
+          name: formData.name.trim(),
+          type: formData.type,
+          server: formData.server.trim(),
           port,
-          groupId: editNode.groupId || null,
+          groupId: formData.groupId || null,
           config: cleanConfig,
         }),
       })
 
       if (!res.ok) throw new Error("更新失败")
 
-      // 更新本地状态，包含所有字段（特别是 groupId）
       setNodes((prev) =>
         prev.map((n) =>
           n.id === editingNode.id
-            ? {
-                ...n,
-                name: editNode.name,
-                type: editNode.type,
-                server: editNode.server,
-                port,
-                config,
-                groupId: editNode.groupId || null  // 修复：同步更新 groupId
-              }
+            ? { ...n, name: formData.name, type: formData.type, server: formData.server, port, config, groupId: formData.groupId || null }
             : n
         )
       )
 
-      // 同步更新 groupNodeMapping
       const oldGroupId = editingNode.groupId
-      const newGroupId = editNode.groupId || null
+      const newGroupId = formData.groupId || null
 
       if (oldGroupId !== newGroupId) {
         setGroupNodeMapping((prev) => {
           const updated = { ...prev }
-
-          // 从旧组中移除
           if (oldGroupId) {
             updated[oldGroupId] = new Set(updated[oldGroupId])
             updated[oldGroupId].delete(editingNode.id)
@@ -641,7 +614,7 @@ export default function NodesPage() {
 
       setIsEditNodeOpen(false)
       setEditingNode(null)
-      showToast({ title: "更新成功", description: `节点 "${editNode.name}" 已更新`, variant: "success" })
+      showToast({ title: "更新成功", description: `节点 "${formData.name}" 已更新`, variant: "success" })
     } catch (error) {
       console.error("更新节点失败:", error)
       showToast({ title: "更新失败", variant: "destructive" })
