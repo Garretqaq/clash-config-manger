@@ -308,9 +308,6 @@ export default function NodesPage() {
     return configLines.join("\n")
   }, [editNode, editingNode])
 
-  // 展开预览时初始化 textarea 内容
-  useEffect(() => { if (showPreview) setYamlEditText(yamlPreview) }, [showPreview]) // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (showEditPreview) setEditYamlEditText(editYamlPreview) }, [showEditPreview]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -1065,7 +1062,10 @@ export default function NodesPage() {
               <Button
                 variant="ghost"
                 className="w-full justify-between h-auto py-2"
-                onClick={() => setShowPreview(!showPreview)}
+                onClick={() => {
+                  if (!showPreview) setYamlEditText(yamlPreview)
+                  setShowPreview(!showPreview)
+                }}
               >
                 <span className="flex items-center gap-2">
                   <Eye className="h-4 w-4" />
@@ -1079,18 +1079,7 @@ export default function NodesPage() {
                   className="mt-3 w-full p-4 bg-zinc-950 rounded-lg text-xs text-zinc-300 font-mono whitespace-pre resize-none outline-none border border-zinc-800 focus:border-zinc-600"
                   rows={Math.max(6, yamlEditText.split("\n").length + 1)}
                   value={yamlEditText}
-                  onChange={(e) => {
-                    setYamlEditText(e.target.value)
-                    const parsed = parseYamlToForm(e.target.value)
-                    setNewNode((prev) => ({
-                      ...prev,
-                      ...(parsed.name !== undefined && { name: parsed.name }),
-                      ...(parsed.type !== undefined && { type: parsed.type }),
-                      ...(parsed.server !== undefined && { server: parsed.server }),
-                      ...(parsed.port !== undefined && { port: parsed.port }),
-                      params: { ...prev.params, ...parsed.params },
-                    }))
-                  }}
+                  onChange={(e) => setYamlEditText(e.target.value)}
                   spellCheck={false}
                 />
               )}
@@ -1233,7 +1222,10 @@ export default function NodesPage() {
               <Button
                 variant="ghost"
                 className="w-full justify-between h-auto py-2"
-                onClick={() => setShowEditPreview(!showEditPreview)}
+                onClick={() => {
+                  if (!showEditPreview) setEditYamlEditText(editYamlPreview)
+                  setShowEditPreview(!showEditPreview)
+                }}
               >
                 <span className="flex items-center gap-2">
                   <Eye className="h-4 w-4" />
@@ -1247,18 +1239,7 @@ export default function NodesPage() {
                   className="mt-3 w-full p-4 bg-zinc-950 rounded-lg text-xs text-zinc-300 font-mono whitespace-pre resize-none outline-none border border-zinc-800 focus:border-zinc-600"
                   rows={Math.max(6, editYamlEditText.split("\n").length + 1)}
                   value={editYamlEditText}
-                  onChange={(e) => {
-                    setEditYamlEditText(e.target.value)
-                    const parsed = parseYamlToForm(e.target.value)
-                    setEditNode((prev) => ({
-                      ...prev,
-                      ...(parsed.name !== undefined && { name: parsed.name }),
-                      ...(parsed.type !== undefined && { type: parsed.type }),
-                      ...(parsed.server !== undefined && { server: parsed.server }),
-                      ...(parsed.port !== undefined && { port: parsed.port }),
-                      params: { ...prev.params, ...parsed.params },
-                    }))
-                  }}
+                  onChange={(e) => setEditYamlEditText(e.target.value)}
                   spellCheck={false}
                 />
               )}

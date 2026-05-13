@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -42,8 +43,10 @@ function DialogTrigger({ children, asChild }: { children: React.ReactNode; asChi
 
 function DialogPortal({ children }: { children: React.ReactNode }) {
   const context = React.useContext(DialogContext)
-  if (!context?.open) return null
-  return <>{children}</>
+  const [mounted, setMounted] = React.useState(false)
+  React.useEffect(() => { setMounted(true) }, [])
+  if (!context?.open || !mounted) return null
+  return createPortal(<>{children}</>, document.body)
 }
 
 function DialogOverlay({ className }: { className?: string }) {
