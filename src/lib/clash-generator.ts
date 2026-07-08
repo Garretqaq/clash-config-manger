@@ -6,6 +6,7 @@ interface GenerateOptions {
   proxies: ClashProxyConfig[]
   nodeMapping: Record<string, string[]> // groupName -> (nodeNames | groupNames)
   removeUnusedGroups?: boolean // 是否移除不在 nodeMapping 中的分组
+  rules?: string[] // 覆盖模板 rules；未传则维持模板原样
 }
 
 export class ClashGenerator {
@@ -13,13 +14,18 @@ export class ClashGenerator {
    * 生成完整的 Clash 配置
    */
   static generate(options: GenerateOptions): string {
-    const { template, proxies, nodeMapping, removeUnusedGroups = false } = options
+    const { template, proxies, nodeMapping, removeUnusedGroups = false, rules } = options
 
     // 解析模板
     const config = yaml.load(template) as ClashConfig
 
     // 设置代理节点
     config.proxies = proxies
+
+    // 覆盖规则（若调用方提供）
+    if (rules) {
+      config.rules = rules
+    }
 
     // 获取模板中原始的分组名称
     const templateGroupNames = new Set(
