@@ -1,6 +1,7 @@
 import assert from 'node:assert'
 import yaml from 'js-yaml'
-import { parseRuleProviders, serializeRuleProviders } from './clash-rule-providers'
+import { parseRuleProviders, serializeRuleProviders, validateRuleProviders } from './clash-rule-providers'
+import type { RuleItem } from './clash-rules'
 import { ClashGenerator } from './clash-generator'
 
 const content = `rule-providers:
@@ -108,5 +109,26 @@ const generatedEmpty = ClashGenerator.generate({
 const reparsedEmpty = yaml.load(generatedEmpty) as any
 assert.strictEqual(reparsedEmpty['rule-providers'], undefined)
 // --- end generate-verification ---
+
+// validateRuleProviders: 引用存在 -> ok
+const okRules: RuleItem[] = [{ type: 'RULE-SET', value: 'reject', target: 'REJECT' }]
+assert.strictEqual(validateRuleProviders(okRules, items).ok, true)
+
+// 引用缺失 -> 报错
+const badRules: RuleItem[] = [{ type: 'RULE-SET', value: 'nonexist', target: 'REJECT' }]
+const badResult = validateRuleProviders(badRules, items)
+assert.strictEqual(badResult.ok, false)
+assert.ok(badResult.errors.some((e) => e.includes('nonexist')))
+
+// provider 重名 -> 报错
+const dupProviders = [
+  { name: 'reject', type: 'http', behavior: 'domain', url: 'https://a.com', path: './a.yaml', interval: '86400' },
+  { name: 'reject', type: 'http', behavior: 'domain', url: 'https://b.com', path: './b.yaml', interval: '86400' },
+]
+assert.ok(!validateRuleProviders([], dupProviders).ok)
+
+// http 无 url -> 报错
+const noUrl = [{ name: 'x', type: 'http', behavior: 'domain', url: '', path: './x.yaml', interval: '86400' }]
+assert.ok(!validateRuleProviders([], noUrl).ok)
 
 console.log('clash-rule-providers self-check passed')
