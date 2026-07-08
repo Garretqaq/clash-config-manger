@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, templateId, nodeMapping } = body
+    const { id, name, templateId, nodeMapping, rules } = body
 
     if (!id) {
       return NextResponse.json({ error: '缺少配置 ID' }, { status: 400 })
@@ -223,6 +223,7 @@ export async function PUT(request: NextRequest) {
       proxies,
       nodeMapping: nodeNameMapping,
       removeUnusedGroups: true,
+      rules,
     })
 
     // 更新配置
