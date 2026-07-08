@@ -38,6 +38,7 @@ const NODE_TYPES: { value: ProxyType; label: string }[] = [
   { value: "http", label: "HTTP" },
   { value: "hysteria", label: "Hysteria" },
   { value: "hysteria2", label: "Hysteria2" },
+  { value: "anytls", label: "AnyTLS" },
 ]
 
 // 各类型节点的额外配置字段
@@ -98,6 +99,15 @@ const NODE_TYPE_PARAMS: Record<ProxyType, { key: string; label: string; placehol
     { key: "upmbps", label: "上传带宽 (Mbps)", placeholder: "100" },
     { key: "downmbps", label: "下载带宽 (Mbps)", placeholder: "100" },
     { key: "sni", label: "SNI", placeholder: "www.bing.com" },
+  ],
+  anytls: [
+    { key: "password", label: "密码", placeholder: "密码" },
+    { key: "client-fingerprint", label: "客户端指纹", placeholder: "chrome" },
+    { key: "sni", label: "SNI", placeholder: "www.bing.com" },
+    { key: "udp", label: "UDP", placeholder: "true/false" },
+    { key: "skip-cert-verify", label: "跳过证书验证", placeholder: "true/false" },
+    { key: "idle-session-check-interval", label: "空闲检查间隔(秒)", placeholder: "30" },
+    { key: "idle-session-timeout", label: "空闲超时(秒)", placeholder: "30" },
   ],
 }
 

@@ -41,6 +41,7 @@ const typeColors: Record<string, string> = {
   trojan: "bg-purple-500/20 text-purple-400",
   hysteria: "bg-orange-500/20 text-orange-400",
   hysteria2: "bg-amber-500/20 text-amber-400",
+  anytls: "bg-cyan-500/20 text-cyan-400",
 }
 
 export function NodeCard({

@@ -1,4 +1,4 @@
-export type ProxyType = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'socks5' | 'http' | 'hysteria' | 'hysteria2'
+export type ProxyType = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'socks5' | 'http' | 'hysteria' | 'hysteria2' | 'anytls'
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'testing'
 
