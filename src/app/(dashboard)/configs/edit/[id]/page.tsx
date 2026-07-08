@@ -762,7 +762,20 @@ export default function EditConfigPage() {
     setRules((prev) => [...prev, { type: 'DOMAIN-SUFFIX', value: '', target: 'DIRECT' }])
 
   const updateRule = (index: number, patch: Partial<RuleItem>) =>
-    setRules((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+    setRules((prev) =>
+      prev.map((r, i) => {
+        if (i !== index) return r
+        const next = { ...r, ...patch }
+        if (patch.type !== undefined) {
+          next.type = patch.type.toUpperCase()
+        }
+        // 切到 MATCH/FINAL 时清空 value（无 value 段）
+        if (next.type === 'MATCH' || next.type === 'FINAL') {
+          next.value = ''
+        }
+        return next
+      })
+    )
 
   const deleteRule = (index: number) =>
     setRules((prev) => prev.filter((_, i) => i !== index))
@@ -785,6 +798,19 @@ export default function EditConfigPage() {
     if (!templateId) {
       showToast({ title: "保存失败", description: "无法确定模板信息", variant: "destructive" })
       return
+    }
+
+    // 校验规则：所有规则须有类型与目标；非 MATCH/FINAL 类型须有值
+    for (let i = 0; i < rules.length; i++) {
+      const r = rules[i]
+      if (!r.type || !r.target) {
+        showToast({ title: "规则不完整", description: `第 ${i + 1} 条规则缺少类型或目标`, variant: "destructive" })
+        return
+      }
+      if (r.type !== 'MATCH' && r.type !== 'FINAL' && !r.value) {
+        showToast({ title: "规则不完整", description: `第 ${i + 1} 条规则缺少值`, variant: "destructive" })
+        return
+      }
     }
 
     // 转换为保存格式:NodeMappingItem[]

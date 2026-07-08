@@ -17,7 +17,7 @@ export function parseRules(content: string): RuleItem[] {
   }
   return rules.map((line) => {
     const parts = String(line).split(',')
-    const type = (parts[0] ?? '').trim()
+    const type = (parts[0] ?? '').trim().toUpperCase()
     if (NO_VALUE_TYPES.has(type)) {
       return { type, value: '', target: (parts[1] ?? '').trim() }
     }
