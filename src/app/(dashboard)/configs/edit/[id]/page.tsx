@@ -51,6 +51,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClashGenerator } from "@/lib/clash-generator"
+import { parseRules, serializeRules, type RuleItem } from "@/lib/clash-rules"
 import { showToast } from "@/components/ui/toast"
 import type { ProxyNode, Template, Group, Config, NodeMappingValue } from "@/lib/types"
 
@@ -361,6 +362,7 @@ export default function EditConfigPage() {
   const [nodeMapping, setNodeMapping] = useState<Record<string, NodeMappingValue[]>>({})
   const [configName, setConfigName] = useState("")
   const [previewContent, setPreviewContent] = useState("")
+  const [rules, setRules] = useState<RuleItem[]>([])
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
 
   const [isSaveOpen, setIsSaveOpen] = useState(false)
@@ -402,6 +404,7 @@ export default function EditConfigPage() {
       const config = await configRes.json()
 
       setConfigData(config)
+      setRules(parseRules(config.content))
       setConfigName(config.name)
 
       // 获取所有节点（不过滤）
@@ -510,10 +513,11 @@ export default function EditConfigPage() {
       proxies: proxyConfigs,
       nodeMapping: nodeMappingNames,
       removeUnusedGroups: true,
+      rules: serializeRules(rules),
     })
 
     setPreviewContent(preview)
-  }, [nodeMapping, selectedTemplate, configData])
+  }, [nodeMapping, selectedTemplate, configData, rules])
 
   const extractGroupNames = (content: string): string[] => {
     const groups: string[] = []
@@ -780,6 +784,7 @@ export default function EditConfigPage() {
           name: configName,
           templateId: templateId,
           nodeMapping: nodeMappingIds,
+          rules: serializeRules(rules),
         }),
       })
       const result = await res.json()
