@@ -1,5 +1,7 @@
 import assert from 'node:assert'
+import yaml from 'js-yaml'
 import { parseRuleProviders, serializeRuleProviders } from './clash-rule-providers'
+import { ClashGenerator } from './clash-generator'
 
 const content = `rule-providers:
   reject:
@@ -81,5 +83,30 @@ const fileItem = [{ name: 'local', type: 'file', behavior: 'classical', url: '',
 assert.deepStrictEqual(serializeRuleProviders(fileItem), {
   local: { type: 'file', behavior: 'classical', path: './local.yaml' },
 })
+
+// --- generate-verification: ruleProviders flows through ClashGenerator ---
+const template = `proxies: []
+proxy-groups: []
+rules: []
+`
+const generated = ClashGenerator.generate({
+  template,
+  proxies: [],
+  nodeMapping: {},
+  ruleProviders: obj,
+})
+const reparsed = yaml.load(generated) as any
+assert.deepStrictEqual(reparsed['rule-providers'], obj)
+
+// 空对象 + 模板无 rule-providers 段 -> 不注入
+const generatedEmpty = ClashGenerator.generate({
+  template,
+  proxies: [],
+  nodeMapping: {},
+  ruleProviders: {},
+})
+const reparsedEmpty = yaml.load(generatedEmpty) as any
+assert.strictEqual(reparsedEmpty['rule-providers'], undefined)
+// --- end generate-verification ---
 
 console.log('clash-rule-providers self-check passed')

@@ -7,6 +7,7 @@ interface GenerateOptions {
   nodeMapping: Record<string, string[]> // groupName -> (nodeNames | groupNames)
   removeUnusedGroups?: boolean // 是否移除不在 nodeMapping 中的分组
   rules?: string[] // 覆盖模板 rules；未传则维持模板原样
+  ruleProviders?: Record<string, object> // 覆盖模板 rule-providers；未传则维持原样（前端已 serializeRuleProviders）
 }
 
 export class ClashGenerator {
@@ -14,7 +15,7 @@ export class ClashGenerator {
    * 生成完整的 Clash 配置
    */
   static generate(options: GenerateOptions): string {
-    const { template, proxies, nodeMapping, removeUnusedGroups = false, rules } = options
+    const { template, proxies, nodeMapping, removeUnusedGroups = false, rules, ruleProviders } = options
 
     // 解析模板
     const config = yaml.load(template) as ClashConfig
@@ -27,6 +28,15 @@ export class ClashGenerator {
       // 非空数组总是覆盖；空数组仅在模板已有 rules 段时覆盖（避免向无 rules 模板注入 rules: []）
       if (rules.length > 0 || config.rules !== undefined) {
         config.rules = rules
+      }
+    }
+
+    // 覆盖 rule-providers（若调用方提供）
+    if (ruleProviders) {
+      // 非空对象总是覆盖；空对象仅在模板已有 rule-providers 段时覆盖
+      // （避免向无 rule-providers 的模板注入 rule-providers: {}）
+      if (Object.keys(ruleProviders).length > 0 || config['rule-providers'] !== undefined) {
+        config['rule-providers'] = ruleProviders
       }
     }
 
