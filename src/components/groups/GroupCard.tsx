@@ -48,15 +48,16 @@ export function GroupCard({
     }
   }
 
+  // 只统计本分组内被选中的节点，避免显示全局选择数
+  const selectedCount = nodes.reduce((c, n) => c + (selectedNodes.has(n.id) ? 1 : 0), 0)
+
   const handleSelectAll = (checked: boolean) => {
-    if (onSelectionChange) {
-      if (checked) {
-        const allIds = new Set(nodes.map((n) => n.id))
-        onSelectionChange(allIds, null)
-      } else {
-        onSelectionChange(new Set(), null)
-      }
-    }
+    if (!onSelectionChange) return
+    // 全选/取消只增删本分组的节点，不影响其他容器已选中的
+    const next = new Set(selectedNodes)
+    if (checked) nodes.forEach((n) => next.add(n.id))
+    else nodes.forEach((n) => next.delete(n.id))
+    onSelectionChange(next, null)
   }
 
   const handleSelect = useCallback((nodeId: string, shiftKey: boolean) => {
@@ -122,20 +123,20 @@ export function GroupCard({
           {selectionMode ? (
             <div className="flex items-center gap-2">
               <Checkbox
-                checked={selectedNodes.size === nodes.length && nodes.length > 0}
+                checked={selectedCount === nodes.length && nodes.length > 0}
                 onChange={(e) => handleSelectAll(e.target.checked)}
               />
               <span className="text-sm text-muted-foreground">
-                {selectedNodes.size}/{nodes.length}
+                {selectedCount}/{nodes.length}
               </span>
-              {selectedNodes.size > 0 && (
+              {selectedCount > 0 && (
                 <Button
                   variant="destructive"
                   size="sm"
                   onClick={handleBatchDelete}
                 >
                   <Trash2 className="h-4 w-4 mr-1" />
-                  删除
+                  删除 ({selectedCount})
                 </Button>
               )}
             </div>
@@ -184,11 +185,11 @@ export function GroupCard({
               key={node.id}
               node={node}
               onDelete={selectionMode ? undefined : onDeleteNode}
-              onEdit={onEditNode}
+              onEdit={selectionMode ? undefined : onEditNode}
               connected={connections[node.id]?.connected}
               testPort={connections[node.id]?.port}
               isTesting={testingNodes.has(node.id)}
-              onTest={onTestNodes ? (id) => onTestNodes([id]) : undefined}
+              onTest={selectionMode ? undefined : onTestNodes ? (id) => onTestNodes([id]) : undefined}
               selectable={selectionMode}
               selected={selectedNodes.has(node.id)}
               onSelect={handleSelect}
