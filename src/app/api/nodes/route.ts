@@ -19,12 +19,10 @@ export async function GET(request: NextRequest) {
       where.groupId = groupId
     }
 
+    // ponytail: 不 include group/subscription —— 前端只用 groupId/subscriptionId 标量。
+    // include subscription 会把订阅完整 yamlContent 复制进每个节点，网络传输爆炸。
     const nodes = await prisma.proxyNode.findMany({
       where,
-      include: {
-        group: true,
-        subscription: true,
-      },
       orderBy: {
         createdAt: 'desc',
       },

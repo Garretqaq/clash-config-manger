@@ -8,11 +8,15 @@ export const dynamic = "force-dynamic";
 // GET /api/subscriptions - 获取所有订阅
 export async function GET() {
   try {
+    // ponytail: select 排除 yamlContent —— 列表页不用它，整份 YAML 白传
     const subscriptions = await prisma.subscription.findMany({
-      include: {
-        _count: {
-          select: { nodes: true },
-        },
+      select: {
+        id: true,
+        name: true,
+        url: true,
+        enabled: true,
+        lastSyncAt: true,
+        _count: { select: { nodes: true } },
         groups: {
           select: { id: true, name: true, _count: { select: { nodes: true } } },
         },
@@ -36,11 +40,13 @@ export async function POST(request: NextRequest) {
     const { name, url, yamlContent } = body
 
     // 创建订阅
+    // ponytail: 有 URL 就不存 yamlContent —— 同步时从 URL 拉最新，存整份快照既占空间又会读到旧数据。
+    // 仅纯粘贴（无 URL）时保留 yaml 作为唯一的再同步源。
     const subscription = await prisma.subscription.create({
       data: {
         name,
         url: url || '',
-        yamlContent: yamlContent || null,
+        yamlContent: url ? null : (yamlContent || null),
       },
     })
 
@@ -110,14 +116,14 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: '订阅不存在' }, { status: 404 })
       }
 
-      // 获取并解析配置：优先使用 yamlContent，其次使用 URL
+      // 获取并解析配置：优先从 URL 拉最新，纯粘贴订阅才回退到存储的 yamlContent
       let config
-      if (subscription.yamlContent) {
-        // 使用存储的 yamlContent
-        config = ClashParser.parseContent(subscription.yamlContent)
-      } else if (subscription.url) {
-        // 从 URL 获取
+      if (subscription.url) {
+        // 从 URL 获取最新配置
         config = await ClashParser.fetchFromUrl(subscription.url)
+      } else if (subscription.yamlContent) {
+        // 无 URL 的纯粘贴订阅，用存储的 yamlContent 再解析
+        config = ClashParser.parseContent(subscription.yamlContent)
       } else {
         return NextResponse.json({ error: '订阅没有可用的配置内容' }, { status: 400 })
       }
