@@ -48,6 +48,9 @@ import {
   Loader2,
   ArrowLeft,
   FolderTree,
+  ArrowUp,
+  ArrowDown,
+  ListFilter,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClashGenerator } from "@/lib/clash-generator"
@@ -363,6 +366,7 @@ export default function EditConfigPage() {
   const [configName, setConfigName] = useState("")
   const [previewContent, setPreviewContent] = useState("")
   const [rules, setRules] = useState<RuleItem[]>([])
+  const [rulesExpanded, setRulesExpanded] = useState(false)
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
 
   const [isSaveOpen, setIsSaveOpen] = useState(false)
@@ -749,6 +753,29 @@ export default function EditConfigPage() {
     setNewGroupName("")
   }
 
+  const ruleTargets = useMemo(
+    () => ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', ...Object.keys(nodeMapping)],
+    [nodeMapping]
+  )
+
+  const addRule = () =>
+    setRules((prev) => [...prev, { type: 'DOMAIN-SUFFIX', value: '', target: 'DIRECT' }])
+
+  const updateRule = (index: number, patch: Partial<RuleItem>) =>
+    setRules((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)))
+
+  const deleteRule = (index: number) =>
+    setRules((prev) => prev.filter((_, i) => i !== index))
+
+  const moveRule = (index: number, dir: -1 | 1) =>
+    setRules((prev) => {
+      const j = index + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = [...prev]
+      ;[next[index], next[j]] = [next[j], next[index]]
+      return next
+    })
+
   const handleSaveConfig = async () => {
     if (!configName.trim()) return
 
@@ -990,6 +1017,103 @@ export default function EditConfigPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* 规则配置 */}
+          <Card>
+            <CardHeader
+              className="pb-3 cursor-pointer select-none"
+              onClick={() => setRulesExpanded((v) => !v)}
+            >
+              <CardTitle className="text-base flex items-center gap-2">
+                {rulesExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                <ListFilter className="h-4 w-4 text-primary" />
+                规则配置
+                <Badge variant="secondary" className="ml-1">{rules.length}</Badge>
+              </CardTitle>
+            </CardHeader>
+            {rulesExpanded && (
+              <CardContent>
+                <datalist id="rule-targets">
+                  {ruleTargets.map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+                <ScrollArea className="h-[320px] pr-4">
+                  <div className="space-y-2">
+                    {rules.map((rule, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          className="w-40 font-mono text-xs"
+                          list="rule-types"
+                          value={rule.type}
+                          onChange={(e) => updateRule(index, { type: e.target.value })}
+                          placeholder="类型"
+                        />
+                        <Input
+                          className="flex-1 font-mono text-xs"
+                          value={rule.value}
+                          disabled={rule.type === 'MATCH' || rule.type === 'FINAL'}
+                          onChange={(e) => updateRule(index, { value: e.target.value })}
+                          placeholder="值"
+                        />
+                        <Input
+                          className="w-40 font-mono text-xs"
+                          list="rule-targets"
+                          value={rule.target}
+                          onChange={(e) => updateRule(index, { target: e.target.value })}
+                          placeholder="目标"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => moveRule(index, -1)}
+                          disabled={index === 0}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => moveRule(index, 1)}
+                          disabled={index === rules.length - 1}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => deleteRule(index)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+                <datalist id="rule-types">
+                  {['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'RULE-SET', 'DST-PORT', 'PROCESS-NAME', 'MATCH'].map((t) => (
+                    <option key={t} value={t} />
+                  ))}
+                </datalist>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-4 w-full"
+                  onClick={addRule}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  添加规则
+                </Button>
+              </CardContent>
+            )}
+          </Card>
 
           {/* 配置预览 */}
           <Card>
