@@ -24,7 +24,10 @@ export class ClashGenerator {
 
     // 覆盖规则（若调用方提供）
     if (rules) {
-      config.rules = rules
+      // 非空数组总是覆盖；空数组仅在模板已有 rules 段时覆盖（避免向无 rules 模板注入 rules: []）
+      if (rules.length > 0 || config.rules !== undefined) {
+        config.rules = rules
+      }
     }
 
     // 获取模板中原始的分组名称

@@ -22,4 +22,23 @@ assert.deepStrictEqual(serializeRules(items), [
 // 无 rules 段返回空数组
 assert.deepStrictEqual(parseRules('proxies: []'), [])
 
+// 空 rules 数组返回空
+assert.deepStrictEqual(parseRules('rules: []'), [])
+
+// 坏 YAML 返回空数组（try/catch 兜底）
+assert.deepStrictEqual(parseRules('rules: "unclosed'), [])
+
+// FINAL 类型 + MATCH 带额外尾段：尾段并入 target 不丢数据
+const tailContent = `rules:
+  - FINAL,🚀自动选择
+  - MATCH,🚀自动选择,no-resolve
+`
+const tailItems = parseRules(tailContent)
+assert.deepStrictEqual(tailItems[0], { type: 'FINAL', value: '', target: '🚀自动选择' })
+assert.deepStrictEqual(tailItems[1], { type: 'MATCH', value: '', target: '🚀自动选择,no-resolve' })
+assert.deepStrictEqual(serializeRules(tailItems), [
+  'FINAL,🚀自动选择',
+  'MATCH,🚀自动选择,no-resolve',
+])
+
 console.log('clash-rules self-check passed')
