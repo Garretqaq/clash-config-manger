@@ -48,9 +48,6 @@ import {
   Loader2,
   ArrowLeft,
   FolderTree,
-  ArrowUp,
-  ArrowDown,
-  ListFilter,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { ClashGenerator } from "@/lib/clash-generator"

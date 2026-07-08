@@ -30,7 +30,7 @@
 
 ---
 
-## 任务 1：rule-providers 解析与序列化
+## Task 1: rule-providers 解析与序列化
 
 **文件：**
 - 创建：`src/lib/clash-rule-providers.ts`
@@ -238,7 +238,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 2：generator 接收 rule-providers
+## Task 2: generator 接收 rule-providers
 
 **文件：**
 - 修改：`src/lib/clash-generator.ts:4-10, 26-31`
@@ -355,7 +355,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 3：共享校验函数 validateRuleProviders
+## Task 3: 共享校验函数 validateRuleProviders
 
 **文件：**
 - 修改：`src/lib/clash-rule-providers.ts`（追加函数）
@@ -468,7 +468,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 4：共享 RulesEditor 组件
+## Task 4: 共享 RulesEditor 组件
 
 **文件：**
 - 创建：`src/components/config/rules-editor.tsx`
@@ -612,7 +612,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 5：共享 RuleProvidersEditor 组件
+## Task 5: 共享 RuleProvidersEditor 组件
 
 **文件：**
 - 创建：`src/components/config/rule-providers-editor.tsx`
@@ -772,7 +772,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 6：API 改造
+## Task 6: API 改造
 
 **文件：**
 - 修改：`src/app/api/configs/route.ts:55, 118-123, 145, 221-227`
@@ -870,7 +870,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 7：编辑页接入共享组件与 rule-providers
+## Task 7: 编辑页接入共享组件与 rule-providers
 
 **文件：**
 - 修改：`src/app/(dashboard)/configs/edit/[id]/page.tsx`（多处）
@@ -1042,7 +1042,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>"
 
 ---
 
-## 任务 8：创建页接入 rules + rule-providers
+## Task 8: 创建页接入 rules + rule-providers
 
 **文件：**
 - 修改：`src/app/(dashboard)/configs/page.tsx`（多处）

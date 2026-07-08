@@ -84,6 +84,9 @@ export default function ConfigsPage() {
       mapping[name] = []
     })
     setNodeMapping(mapping)
+    // 解析模板中的 rules 和 rule-providers，实现"继承后编辑"而非"清空后重建"
+    setRules(parseRules(template.content))
+    setRuleProviders(parseRuleProviders(template.content))
   }, [])
 
   const fetchData = useCallback(async () => {
