@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { name, templateId, nodeMapping } = body
+    const { name, templateId, nodeMapping, rules, ruleProviders } = body
 
     // 获取模板
     const template = await prisma.template.findUnique({
@@ -120,6 +120,8 @@ export async function POST(request: NextRequest) {
       proxies,
       nodeMapping: nodeNameMapping,
       removeUnusedGroups: true,
+      rules,
+      ruleProviders,
     })
 
     const config = await prisma.config.create({
@@ -142,7 +144,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, name, templateId, nodeMapping, rules } = body
+    const { id, name, templateId, nodeMapping, rules, ruleProviders } = body
 
     if (!id) {
       return NextResponse.json({ error: '缺少配置 ID' }, { status: 400 })
@@ -224,6 +226,7 @@ export async function PUT(request: NextRequest) {
       nodeMapping: nodeNameMapping,
       removeUnusedGroups: true,
       rules,
+      ruleProviders,
     })
 
     // 更新配置
