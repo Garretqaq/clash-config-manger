@@ -27,6 +27,10 @@ import {
 } from "@/components/ui/dialog"
 import { Save, Server, Plus } from "lucide-react"
 import { ClashGenerator } from "@/lib/clash-generator"
+import { parseRules, serializeRules, type RuleItem } from "@/lib/clash-rules"
+import { parseRuleProviders, serializeRuleProviders, validateRuleProviders, type RuleProviderItem } from "@/lib/clash-rule-providers"
+import { RulesEditor } from "@/components/config/rules-editor"
+import { RuleProvidersEditor } from "@/components/config/rule-providers-editor"
 import { showToast } from "@/components/ui/toast"
 import type { ProxyNode, Template, Group, NodeMappingValue } from "@/lib/types"
 
@@ -62,6 +66,13 @@ export default function ConfigsPage() {
   const [isAddGroupOpen, setIsAddGroupOpen] = useState(false)
   const [newGroupName, setNewGroupName] = useState("")
   const [nodePoolWidth, setNodePoolWidth] = useState(320)
+  const [rules, setRules] = useState<RuleItem[]>([])
+  const [ruleProviders, setRuleProviders] = useState<RuleProviderItem[]>([])
+
+  const ruleTargets = useMemo(
+    () => ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', ...Object.keys(nodeMapping)],
+    [nodeMapping]
+  )
 
   // 定义 selectTemplate 函数（需要放在 fetchData 之前）
   const selectTemplate = useCallback((template: Template) => {
@@ -131,10 +142,12 @@ export default function ConfigsPage() {
       proxies: proxyConfigs,
       nodeMapping: nodeMappingNames,
       removeUnusedGroups: true,
+      rules: serializeRules(rules),
+      ruleProviders: serializeRuleProviders(ruleProviders),
     })
 
     setPreviewContent(preview)
-  }, [nodeMapping, selectedTemplate])
+  }, [nodeMapping, selectedTemplate, rules, ruleProviders])
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { node?: ProxyNode }
@@ -184,6 +197,25 @@ export default function ConfigsPage() {
   const handleSaveConfig = async () => {
     if (!configName.trim() || !selectedTemplate) return
 
+    // 校验 rules
+    for (let i = 0; i < rules.length; i++) {
+      const r = rules[i]
+      if (!r.type || !r.target) {
+        showToast({ title: "规则不完整", description: `第 ${i + 1} 条规则缺少类型或目标`, variant: "destructive" })
+        return
+      }
+      if (r.type !== 'MATCH' && r.type !== 'FINAL' && !r.value) {
+        showToast({ title: "规则不完整", description: `第 ${i + 1} 条规则缺少值`, variant: "destructive" })
+        return
+      }
+    }
+    // 校验 rule-providers
+    const rpValidation = validateRuleProviders(rules, ruleProviders)
+    if (!rpValidation.ok) {
+      showToast({ title: "规则集校验失败", description: rpValidation.errors[0], variant: "destructive" })
+      return
+    }
+
     // 转换为保存格式: NodeMappingValue[] -> NodeMappingItem[]
     const nodeMappingIds = convertToSaveFormat(nodeMapping)
 
@@ -195,6 +227,8 @@ export default function ConfigsPage() {
           name: configName,
           templateId: selectedTemplate.id,
           nodeMapping: nodeMappingIds,
+          rules: serializeRules(rules),
+          ruleProviders: serializeRuleProviders(ruleProviders),
         }),
       })
       const config = await res.json()
@@ -354,6 +388,14 @@ export default function ConfigsPage() {
                 </Button>
               </CardContent>
             </Card>
+          )}
+
+          {/* 规则配置 */}
+          {selectedTemplate && (
+            <div className="space-y-4">
+              <RulesEditor rules={rules} onChange={setRules} ruleTargets={ruleTargets} />
+              <RuleProvidersEditor providers={ruleProviders} onChange={setRuleProviders} />
+            </div>
           )}
 
           {/* 配置预览 */}
