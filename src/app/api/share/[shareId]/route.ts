@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/db'
 import { publicLimiter } from '@/lib/rate-limit'
 import { ClashGenerator } from '@/lib/clash-generator'
+import { parseRules, serializeRules } from '@/lib/clash-rules'
+import { parseRuleProviders, serializeRuleProviders } from '@/lib/clash-rule-providers'
 
 // Mark as dynamic route
 export const dynamic = "force-dynamic";
@@ -150,11 +152,18 @@ export async function GET(
       }
 
       // Regenerate config with latest node information
+      // 从已保存的 content 中解析 rules / rule-providers 一并传入，
+      // 否则生成器会回退到模板默认 rules，导致分享内容落后于用户编辑
+      const rules = serializeRules(parseRules(config.content))
+      const ruleProviders = serializeRuleProviders(parseRuleProviders(config.content))
+
       configContent = ClashGenerator.generate({
         template: template.content,
         proxies,
         nodeMapping: nodeNameMapping,
         removeUnusedGroups: true,
+        rules,
+        ruleProviders,
       })
     } else {
       // Use stored content
