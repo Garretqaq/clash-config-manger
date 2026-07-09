@@ -71,20 +71,33 @@ export function RulesEditor({
       </CardHeader>
       {expanded && (
         <CardContent>
-          <datalist id="rule-types">
-            {RULE_TYPES.map((t) => <option key={t} value={t} />)}
-          </datalist>
           <ScrollArea className="h-[320px] pr-4">
             <div className="space-y-2">
               {rules.map((rule, index) => (
                 <div key={index} className="flex items-center gap-2">
-                  <Input
-                    className="w-40 font-mono text-xs"
-                    list="rule-types"
-                    value={rule.type}
-                    onChange={(e) => updateRule(index, { type: e.target.value })}
-                    placeholder="类型"
-                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-40 h-9 justify-between font-mono text-xs shrink-0"
+                      >
+                        <span className="truncate">{rule.type || "选择类型"}</span>
+                        <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-60 overflow-y-auto w-40">
+                      <DropdownMenuRadioGroup
+                        value={rule.type}
+                        onValueChange={(v) => updateRule(index, { type: v })}
+                      >
+                        {RULE_TYPES.map((t) => (
+                          <DropdownMenuRadioItem key={t} value={t} className="text-xs font-mono">
+                            {t}
+                          </DropdownMenuRadioItem>
+                        ))}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Input
                     className="flex-1 font-mono text-xs"
                     value={rule.value}
