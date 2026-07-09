@@ -1,0 +1,31 @@
+services:
+  clash-config-manage:
+    image: registry.cn-hangzhou.aliyuncs.com/dato/clash-config-manage
+    # 本地改了代码想自己构建时，注释掉上面的 image，改用：
+    # build: .
+    container_name: clash-config-manage
+    restart: unless-stopped
+    ports:
+      # 宿主机端口被占用时，只改冒号左边
+      - "3000:3000"
+    volumes:
+      - ./clash-data:/app/data
+    environment:
+      TZ: "Asia/Shanghai"
+
+  # 需要 MySQL 时取消下面的注释，然后在 /setup 向导里填：
+  # 主机 mysql、端口 3306、用户 root、密码 与 MYSQL_ROOT_PASSWORD 一致
+  # mysql:
+  #   image: mysql:8
+  #   container_name: clash-config-mysql
+  #   restart: unless-stopped
+  #   environment:
+  #     TZ: "Asia/Shanghai"
+  #     MYSQL_ROOT_PASSWORD: change-me
+  #     MYSQL_DATABASE: clash_config
+  #   command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  #   volumes:
+  #     - mysql-data:/var/lib/mysql
+
+# volumes:
+#   mysql-data:
