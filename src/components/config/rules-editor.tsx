@@ -7,10 +7,20 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu"
 import type { RuleItem } from "@/lib/clash-rules"
 
 const RULE_TYPES = ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'RULE-SET', 'DST-PORT', 'PROCESS-NAME', 'MATCH']
 const NO_VALUE_TYPES = new Set(['MATCH', 'FINAL'])
+const BUILTIN_TARGETS = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS']
 
 export function RulesEditor({
   rules,
@@ -22,6 +32,8 @@ export function RulesEditor({
   ruleTargets: string[]
 }) {
   const [expanded, setExpanded] = useState(false)
+  const policies = ruleTargets.filter((t) => BUILTIN_TARGETS.includes(t))
+  const groupTargets = ruleTargets.filter((t) => !BUILTIN_TARGETS.includes(t))
 
   const addRule = () =>
     onChange([...rules, { type: 'DOMAIN-SUFFIX', value: '', target: 'DIRECT' }])
@@ -59,9 +71,6 @@ export function RulesEditor({
       </CardHeader>
       {expanded && (
         <CardContent>
-          <datalist id="rule-targets">
-            {ruleTargets.map((t) => <option key={t} value={t} />)}
-          </datalist>
           <datalist id="rule-types">
             {RULE_TYPES.map((t) => <option key={t} value={t} />)}
           </datalist>
@@ -83,13 +92,41 @@ export function RulesEditor({
                     onChange={(e) => updateRule(index, { value: e.target.value })}
                     placeholder="值"
                   />
-                  <Input
-                    className="w-40 font-mono text-xs"
-                    list="rule-targets"
-                    value={rule.target}
-                    onChange={(e) => updateRule(index, { target: e.target.value })}
-                    placeholder="目标"
-                  />
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-40 h-9 justify-between font-mono text-xs shrink-0"
+                      >
+                        <span className="truncate">{rule.target || "选择目标"}</span>
+                        <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="max-h-60 overflow-y-auto w-40">
+                      <DropdownMenuRadioGroup
+                        value={rule.target}
+                        onValueChange={(v) => updateRule(index, { target: v })}
+                      >
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">策略</DropdownMenuLabel>
+                        {policies.map((t) => (
+                          <DropdownMenuRadioItem key={t} value={t} className="text-xs font-mono">
+                            {t}
+                          </DropdownMenuRadioItem>
+                        ))}
+                        {groupTargets.length > 0 && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuLabel className="text-xs text-muted-foreground">分组</DropdownMenuLabel>
+                            {groupTargets.map((t) => (
+                              <DropdownMenuRadioItem key={t} value={t} className="text-xs font-mono">
+                                {t}
+                              </DropdownMenuRadioItem>
+                            ))}
+                          </>
+                        )}
+                      </DropdownMenuRadioGroup>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => moveRule(index, -1)} disabled={index === 0}>
                     <ArrowUp className="h-4 w-4" />
                   </Button>
