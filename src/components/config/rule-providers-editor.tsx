@@ -51,30 +51,30 @@ export function RuleProvidersEditor({
         </CardTitle>
       </CardHeader>
       {expanded && (
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-2">
           {providers.map((p, index) => {
             const dup = p.name !== '' && (nameCounts.get(p.name) ?? 0) > 1
             return (
-              <div key={index} className="rounded-lg border p-3 space-y-2">
-                <div className="flex items-center gap-2">
+              <div key={index} className="rounded-lg border p-2.5 space-y-1.5">
+                <div className="flex items-center gap-1.5">
                   <Input
                     className="flex-1 font-mono text-xs"
                     value={p.name}
                     onChange={(e) => update(index, { name: e.target.value })}
                     placeholder="名称（唯一）"
                   />
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => move(index, -1)} disabled={index === 0}>
-                    <ArrowUp className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => move(index, -1)} disabled={index === 0}>
+                    <ArrowUp className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => move(index, 1)} disabled={index === providers.length - 1}>
-                    <ArrowDown className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => move(index, 1)} disabled={index === providers.length - 1}>
+                    <ArrowDown className="h-3.5 w-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
-                    <Trash2 className="h-4 w-4" />
+                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => remove(index)}>
+                    <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
                 {dup && <p className="text-xs text-destructive">名称重复</p>}
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <div>
                     <Label className="text-xs text-muted-foreground">type</Label>
                     <select
@@ -106,7 +106,7 @@ export function RuleProvidersEditor({
                     placeholder={p.type === 'file' ? 'file 类型无需 url' : 'https://...'}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <div>
                     <Label className="text-xs text-muted-foreground">path</Label>
                     <Input className="font-mono text-xs" value={p.path} onChange={(e) => update(index, { path: e.target.value })} placeholder="./ruleset/xx.yaml" />
