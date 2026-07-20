@@ -102,8 +102,9 @@ export class ClashGenerator {
     return nodes.map((node) => ({
       name: node.name,
       type: node.type,
-      server: node.server,
-      port: node.port,
+      // Tailscale 等无 server/port 的协议，空值时不输出
+      ...(node.server ? { server: node.server } : {}),
+      ...(node.port > 0 ? { port: node.port } : {}),
       ...node.config,
     }))
   }

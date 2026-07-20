@@ -185,7 +185,7 @@ clash-config-manage/
 |------|------|------|
 | id | String | 唯一标识 |
 | name | String | 节点名称 |
-| type | String | 节点类型（ss / vmess / trojan 等） |
+| type | String | 节点类型（ss / vmess / vless / trojan / hysteria2 / anytls / tailscale / openvpn / trusttunnel / gost-relay 等） |
 | server | String | 服务器地址 |
 | port | Int | 端口 |
 | config | String | 完整节点配置（JSON 字符串） |

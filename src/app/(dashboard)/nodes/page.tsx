@@ -27,6 +27,7 @@ import { useConfirmDialog } from "@/components/ui/confirm-dialog"
 import { showToast } from "@/components/ui/toast"
 import { FolderPlus, Plus, ChevronDown, ChevronRight, Eye, Code, Wifi, Loader2, CheckSquare, Square } from "lucide-react"
 import type { ProxyNode, Group, ProxyType } from "@/lib/types"
+import { cn } from "@/lib/utils"
 
 const NODE_TYPES: { value: ProxyType; label: string }[] = [
   { value: "ss", label: "Shadowsocks" },
@@ -39,6 +40,10 @@ const NODE_TYPES: { value: ProxyType; label: string }[] = [
   { value: "hysteria", label: "Hysteria" },
   { value: "hysteria2", label: "Hysteria2" },
   { value: "anytls", label: "AnyTLS" },
+  { value: "trusttunnel", label: "TrustTunnel" },
+  { value: "openvpn", label: "OpenVPN" },
+  { value: "tailscale", label: "Tailscale" },
+  { value: "gost-relay", label: "GostRelay" },
 ]
 
 // 各类型节点的额外配置字段
@@ -108,6 +113,36 @@ const NODE_TYPE_PARAMS: Record<ProxyType, { key: string; label: string; placehol
     { key: "skip-cert-verify", label: "跳过证书验证", placeholder: "true/false" },
     { key: "idle-session-check-interval", label: "空闲检查间隔(秒)", placeholder: "30" },
     { key: "idle-session-timeout", label: "空闲超时(秒)", placeholder: "30" },
+  ],
+  trusttunnel: [
+    { key: "username", label: "用户名", placeholder: "用户名" },
+    { key: "password", label: "密码", placeholder: "密码" },
+    { key: "sni", label: "SNI", placeholder: "www.bing.com" },
+    { key: "udp", label: "UDP", placeholder: "true/false" },
+    { key: "client-fingerprint", label: "客户端指纹", placeholder: "chrome" },
+    { key: "alpn", label: "ALPN", placeholder: "h2" },
+  ],
+  openvpn: [
+    { key: "username", label: "用户名", placeholder: "用户名" },
+    { key: "password", label: "密码", placeholder: "密码" },
+    { key: "ca", label: "CA 证书", placeholder: "-----BEGIN CERTIFICATE-----" },
+    { key: "proto", label: "协议", placeholder: "udp / tcp" },
+    { key: "cipher", label: "加密方式", placeholder: "AES-128-GCM" },
+  ],
+  tailscale: [
+    { key: "auth-key", label: "Auth Key", placeholder: "tskey-auth-xxxx" },
+    { key: "hostname", label: "主机名", placeholder: "mihomo" },
+    { key: "control-url", label: "控制服务器", placeholder: "https://controlplane.tailscale.com" },
+    { key: "ephemeral", label: "临时节点", placeholder: "true/false" },
+    { key: "udp", label: "UDP", placeholder: "true/false" },
+  ],
+  "gost-relay": [
+    { key: "username", label: "用户名", placeholder: "用户名" },
+    { key: "password", label: "密码", placeholder: "密码" },
+    { key: "tls", label: "TLS", placeholder: "true/false" },
+    { key: "sni", label: "SNI", placeholder: "www.bing.com" },
+    { key: "mux", label: "多路复用", placeholder: "true/false" },
+    { key: "udp", label: "UDP", placeholder: "true/false" },
   ],
 }
 
@@ -433,13 +468,14 @@ export default function NodesPage() {
   const handleAddNode = async () => {
     const parsed = yamlEditText ? parseYamlToForm(yamlEditText) : {}
     const formData = { ...newNode, ...parsed, params: { ...newNode.params, ...(parsed.params || {}) } }
-    if (!formData.name.trim() || !formData.server.trim() || !formData.port.trim()) {
+    const isTailscale = formData.type === "tailscale"
+    if (!formData.name.trim() || (!isTailscale && (!formData.server.trim() || !formData.port.trim()))) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
     }
 
     const port = parseInt(formData.port, 10)
-    if (isNaN(port) || port <= 0 || port > 65535) {
+    if (!isTailscale && (isNaN(port) || port <= 0 || port > 65535)) {
       showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
       return
     }
@@ -463,7 +499,7 @@ export default function NodesPage() {
           name: formData.name,
           type: formData.type,
           server: formData.server,
-          port,
+          port: isNaN(port) ? 0 : port,
           groupId: formData.groupId || null,
           config,
         }),
@@ -530,13 +566,14 @@ export default function NodesPage() {
   const handleEditNode = async () => {
     const parsed = editYamlEditText ? parseYamlToForm(editYamlEditText) : {}
     const formData = { ...editNode, ...parsed, params: { ...editNode.params, ...(parsed.params || {}) } }
-    if (!editingNode || !formData.name.trim() || !formData.server.trim() || !formData.port.trim()) {
+    const isTailscale = formData.type === "tailscale"
+    if (!editingNode || !formData.name.trim() || (!isTailscale && (!formData.server.trim() || !formData.port.trim()))) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
     }
 
     const port = parseInt(formData.port, 10)
-    if (isNaN(port) || port <= 0 || port > 65535) {
+    if (!isTailscale && (isNaN(port) || port <= 0 || port > 65535)) {
       showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
       return
     }
@@ -580,7 +617,7 @@ export default function NodesPage() {
           name: formData.name.trim(),
           type: formData.type,
           server: formData.server.trim(),
-          port,
+          port: isNaN(port) ? 0 : port,
           groupId: formData.groupId || null,
           config: cleanConfig,
         }),
@@ -947,7 +984,7 @@ export default function NodesPage() {
                 />
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
+                <div className={cn("space-y-2", newNode.type === "tailscale" && "col-span-3")}>
                   <Label htmlFor="node-type">类型</Label>
                   <Select
                     value={newNode.type}
@@ -965,24 +1002,28 @@ export default function NodesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="node-port">端口</Label>
-                  <Input
-                    id="node-port"
-                    placeholder="443"
-                    value={newNode.port}
-                    onChange={(e) => setNewNode((prev) => ({ ...prev, port: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="node-server">服务器</Label>
-                  <Input
-                    id="node-server"
-                    placeholder="jp.example.com"
-                    value={newNode.server}
-                    onChange={(e) => setNewNode((prev) => ({ ...prev, server: e.target.value }))}
-                  />
-                </div>
+                {newNode.type !== "tailscale" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="node-port">端口</Label>
+                      <Input
+                        id="node-port"
+                        placeholder="443"
+                        value={newNode.port}
+                        onChange={(e) => setNewNode((prev) => ({ ...prev, port: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="node-server">服务器</Label>
+                      <Input
+                        id="node-server"
+                        placeholder="jp.example.com"
+                        value={newNode.server}
+                        onChange={(e) => setNewNode((prev) => ({ ...prev, server: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="node-group">分配到分组（可选）</Label>
@@ -1120,7 +1161,7 @@ export default function NodesPage() {
                 />
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <div className="space-y-2">
+                <div className={cn("space-y-2", editNode.type === "tailscale" && "col-span-3")}>
                   <Label htmlFor="edit-node-type">类型</Label>
                   <Select
                     value={editNode.type}
@@ -1138,24 +1179,28 @@ export default function NodesPage() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-node-port">端口</Label>
-                  <Input
-                    id="edit-node-port"
-                    placeholder="443"
-                    value={editNode.port}
-                    onChange={(e) => setEditNode((prev) => ({ ...prev, port: e.target.value }))}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-node-server">服务器</Label>
-                  <Input
-                    id="edit-node-server"
-                    placeholder="jp.example.com"
-                    value={editNode.server}
-                    onChange={(e) => setEditNode((prev) => ({ ...prev, server: e.target.value }))}
-                  />
-                </div>
+                {editNode.type !== "tailscale" && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-node-port">端口</Label>
+                      <Input
+                        id="edit-node-port"
+                        placeholder="443"
+                        value={editNode.port}
+                        onChange={(e) => setEditNode((prev) => ({ ...prev, port: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-node-server">服务器</Label>
+                      <Input
+                        id="edit-node-server"
+                        placeholder="jp.example.com"
+                        value={editNode.server}
+                        onChange={(e) => setEditNode((prev) => ({ ...prev, server: e.target.value }))}
+                      />
+                    </div>
+                  </>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-node-group">分配到分组（可选）</Label>

@@ -42,6 +42,10 @@ const typeColors: Record<string, string> = {
   hysteria: "bg-orange-500/20 text-orange-400",
   hysteria2: "bg-amber-500/20 text-amber-400",
   anytls: "bg-cyan-500/20 text-cyan-400",
+  trusttunnel: "bg-teal-500/20 text-teal-400",
+  openvpn: "bg-indigo-500/20 text-indigo-400",
+  tailscale: "bg-sky-500/20 text-sky-400",
+  "gost-relay": "bg-rose-500/20 text-rose-400",
 }
 
 export function NodeCard({

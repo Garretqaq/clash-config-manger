@@ -1,4 +1,4 @@
-export type ProxyType = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'socks5' | 'http' | 'hysteria' | 'hysteria2' | 'anytls'
+export type ProxyType = 'ss' | 'ssr' | 'vmess' | 'vless' | 'trojan' | 'socks5' | 'http' | 'hysteria' | 'hysteria2' | 'anytls' | 'trusttunnel' | 'openvpn' | 'tailscale' | 'gost-relay'
 
 export type ConnectionStatus = 'connected' | 'disconnected' | 'testing'
 
@@ -89,8 +89,8 @@ export interface Config {
 export interface ClashProxyConfig {
   name: string
   type: string
-  server: string
-  port: number
+  server?: string
+  port?: number
   [key: string]: unknown
 }
 

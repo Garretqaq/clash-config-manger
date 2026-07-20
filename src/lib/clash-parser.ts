@@ -337,6 +337,10 @@ export class ClashParser {
    * 验证节点配置
    */
   static validateProxy(proxy: ClashProxyConfig): boolean {
+    // Tailscale 基于身份鉴权，没有 server/port
+    if (proxy.type === 'tailscale') {
+      return !!(proxy.name && proxy.type)
+    }
     return !!(
       proxy.name &&
       proxy.type &&
@@ -359,8 +363,8 @@ export class ClashParser {
     return {
       name,
       type,
-      server,
-      port,
+      server: server ?? '',
+      port: port ?? 0,
       config: rest,
     }
   }
