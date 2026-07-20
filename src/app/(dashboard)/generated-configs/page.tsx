@@ -19,6 +19,7 @@ import {
   Trash2,
   Eye,
   Copy,
+  CopyPlus,
   Check,
   Pencil,
   Share2,
@@ -77,6 +78,27 @@ export default function GeneratedConfigsPage() {
       setPreviewCopied(true)
       showToast({ title: "已复制", description: "配置内容已复制到剪贴板", variant: "success" })
       setTimeout(() => setPreviewCopied(false), 2000)
+    }
+  }
+
+  const handleDuplicate = async (id: string) => {
+    try {
+      const res = await fetch("/api/configs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ duplicateFromId: id }),
+      })
+      const data = await res.json()
+
+      if (res.ok) {
+        setConfigs((prev) => [data, ...prev])
+        showToast({ title: "复制成功", description: `已创建 "${data.name}"`, variant: "success" })
+      } else {
+        showToast({ title: "复制失败", description: data.error || "未知错误", variant: "destructive" })
+      }
+    } catch (error) {
+      console.error("复制配置失败:", error)
+      showToast({ title: "复制失败", description: "网络错误，请稍后重试", variant: "destructive" })
     }
   }
 
@@ -203,12 +225,21 @@ export default function GeneratedConfigsPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => handleCopy(config.content, config.id)}
+                    title="复制配置内容"
                   >
                     {copiedId === config.id ? (
                       <Check className="h-3 w-3 text-green-500" />
                     ) : (
                       <Copy className="h-3 w-3" />
                     )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleDuplicate(config.id)}
+                    title="复制为新配置"
+                  >
+                    <CopyPlus className="h-3 w-3" />
                   </Button>
                   <Button
                     variant="ghost"

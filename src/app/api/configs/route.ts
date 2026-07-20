@@ -48,10 +48,64 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/configs - 生成配置
+// 生成"副本"名称：剥离已有的 " 副本"/" 副本 N" 后缀得到基础名，
+// 再在同基础名的副本中找最大序号并 +1
+async function generateDuplicateName(originalName: string): Promise<string> {
+  const baseName = originalName.replace(/\s副本(\s\d+)?$/, '')
+
+  const existing = await prisma.config.findMany({
+    where: {
+      name: {
+        startsWith: `${baseName} 副本`,
+      },
+    },
+    select: { name: true },
+  })
+
+  const suffixPattern = new RegExp(`^${baseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} 副本(?: (\\d+))?$`)
+  let maxN = 0
+  for (const { name: existingName } of existing) {
+    const match = existingName.match(suffixPattern)
+    if (match) {
+      maxN = Math.max(maxN, match[1] ? parseInt(match[1], 10) : 1)
+    }
+  }
+
+  return maxN === 0 ? `${baseName} 副本` : `${baseName} 副本 ${maxN + 1}`
+}
+
+// POST /api/configs - 生成配置，或复制已有配置（body 携带 duplicateFromId）
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+
+    // 复制已有配置：直接克隆存储字段，不重新走模板生成逻辑
+    if (body.duplicateFromId) {
+      const original = await prisma.config.findUnique({
+        where: { id: body.duplicateFromId },
+      })
+
+      if (!original) {
+        return NextResponse.json({ error: '配置不存在' }, { status: 404 })
+      }
+
+      const newName = await generateDuplicateName(original.name)
+
+      const duplicated = await prisma.config.create({
+        data: {
+          name: newName,
+          templateId: original.templateId,
+          nodeMapping: original.nodeMapping,
+          content: original.content,
+        },
+      })
+
+      return NextResponse.json({
+        ...duplicated,
+        nodeMapping: JSON.parse(duplicated.nodeMapping),
+      }, { status: 201 })
+    }
+
     const { name, templateId, nodeMapping, rules, ruleProviders } = body
 
     // 获取模板
