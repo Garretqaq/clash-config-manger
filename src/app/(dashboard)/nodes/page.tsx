@@ -287,23 +287,30 @@ export default function NodesPage() {
   // 生成 YAML 预览
   const yamlPreview = useMemo(() => {
     const { name, type, server, port, params } = newNode
-    const configLines = [
-      `- name: ${name || "未命名节点"}`,
-      `  type: ${type}`,
-      `  server: ${server || "xxx.xxx.xxx.xxx"}`,
-      `  port: ${port || "0"}`,
-    ]
-
+    const config: Record<string, unknown> = {}
     Object.entries(params).forEach(([key, value]) => {
+      if (key.startsWith("__is_object__")) return
       const strValue = String(value || "")
-      if (strValue.trim()) {
-        // 布尔值保持原样，字符串加引号
-        const formattedValue = strValue.toLowerCase() === "true" || strValue.toLowerCase() === "false" ? strValue : `"${strValue}"`
-        configLines.push(`  ${key}: ${formattedValue}`)
-      }
+      if (!strValue.trim()) return
+      const isMarkedAsObject = params[`__is_object__${key}`] === "true"
+      if (isMarkedAsObject) {
+        try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
+      } else if (strValue.toLowerCase() === "true") config[key] = true
+      else if (strValue.toLowerCase() === "false") config[key] = false
+      else config[key] = strValue
     })
 
-    return configLines.join("\n")
+    const portNum = parseInt(port, 10)
+    const obj = {
+      name: name || "未命名节点",
+      type,
+      server: server || "xxx.xxx.xxx.xxx",
+      port: Number.isNaN(portNum) ? (port || "0") : portNum,
+      ...config,
+    }
+
+    // 用 js-yaml 输出，多行字符串（证书等）自动使用 | 块标量并正确缩进
+    return yaml.dump([obj], { indent: 2, lineWidth: -1, noRefs: true, sortKeys: false }).trimEnd()
   }, [newNode])
 
   // 编辑节点的 YAML 预览
@@ -311,12 +318,6 @@ export default function NodesPage() {
     if (!editingNode) return ""
 
     const { name, type, server, port, params } = editNode
-    const configLines = [
-      `- name: ${name || "未命名节点"}`,
-      `  type: ${type}`,
-      `  server: ${server || "xxx.xxx.xxx.xxx"}`,
-      `  port: ${port || "0"}`,
-    ]
 
     // 从原始节点获取完整配置
     const originalConfig = (editingNode.config as unknown as Record<string, unknown>) || {}
@@ -351,39 +352,22 @@ export default function NodesPage() {
       }
     })
 
-    // 格式化配置为 YAML，过滤掉辅助字段
-    Object.entries(previewConfig)
-      .filter(([key]) => !key.startsWith('__is_object__'))
-      .forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        // 数组格式
-        configLines.push(`  ${key}:`)
-        value.forEach(item => {
-          configLines.push(`  - ${item}`)
-        })
-      } else if (typeof value === 'boolean') {
-        configLines.push(`  ${key}: ${value}`)
-      } else if (typeof value === 'object' && value !== null) {
-        // 嵌套对象格式化为多行 YAML
-        configLines.push(`  ${key}:`)
-        Object.entries(value as unknown as Record<string, unknown>).forEach(([subKey, subValue]) => {
-          if (typeof subValue === 'object' && subValue !== null) {
-            // headers 等嵌套对象
-            configLines.push(`    ${subKey}:`)
-            Object.entries(subValue as unknown as Record<string, unknown>).forEach(([k, v]) => {
-              configLines.push(`      ${k}: ${v}`)
-            })
-          } else {
-            configLines.push(`    ${subKey}: ${subValue}`)
-          }
-        })
-      } else {
-        const formattedValue = typeof value === 'string' ? `${value}` : value
-        configLines.push(`  ${key}: ${formattedValue}`)
-      }
+    // 过滤辅助字段，用 js-yaml 输出（多行字符串自动用 | 块标量并正确缩进）
+    const cleanConfig: Record<string, unknown> = {}
+    Object.entries(previewConfig).forEach(([key, value]) => {
+      if (!key.startsWith('__is_object__')) cleanConfig[key] = value
     })
 
-    return configLines.join("\n")
+    const portNum = parseInt(port, 10)
+    const obj = {
+      name: name || "未命名节点",
+      type,
+      server: server || "xxx.xxx.xxx.xxx",
+      port: Number.isNaN(portNum) ? (port || "0") : portNum,
+      ...cleanConfig,
+    }
+
+    return yaml.dump([obj], { indent: 2, lineWidth: -1, noRefs: true, sortKeys: false }).trimEnd()
   }, [editNode, editingNode])
 
   // 表单 → YAML：表单变化时同步 textarea（textarea 聚焦时跳过，避免覆盖用户输入）
