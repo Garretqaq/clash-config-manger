@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   DropdownMenu,
@@ -33,8 +34,9 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import type { RuleItem } from "@/lib/clash-rules"
 
-const RULE_TYPES = ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'GEOIP', 'RULE-SET', 'DST-PORT', 'PROCESS-NAME', 'MATCH']
+const RULE_TYPES = ['DOMAIN', 'DOMAIN-SUFFIX', 'DOMAIN-KEYWORD', 'IP-CIDR', 'IP-CIDR6', 'IP-ASN', 'GEOIP', 'RULE-SET', 'DST-PORT', 'PROCESS-NAME', 'MATCH']
 const NO_VALUE_TYPES = new Set(['MATCH', 'FINAL'])
+const NO_RESOLVE_TYPES = new Set(['IP-CIDR', 'IP-CIDR6', 'IP-ASN', 'GEOIP'])
 const BUILTIN_TARGETS = ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS']
 
 export function RulesEditor({
@@ -60,6 +62,7 @@ export function RulesEditor({
         const next = { ...r, ...patch }
         if (patch.type !== undefined) next.type = patch.type.toUpperCase()
         if (next.type === 'MATCH' || next.type === 'FINAL') next.value = ''
+        if (!NO_RESOLVE_TYPES.has(next.type)) next.noResolve = false
         return next
       })
     )
@@ -216,6 +219,15 @@ function SortableRuleRow({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {NO_RESOLVE_TYPES.has(rule.type) && (
+        <label className="flex items-center gap-1 shrink-0 cursor-pointer select-none text-xs font-mono text-muted-foreground">
+          <Checkbox
+            checked={!!rule.noResolve}
+            onChange={(e) => onUpdate(index, { noResolve: e.target.checked })}
+          />
+          no-resolve
+        </label>
+      )}
       <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => onDelete(index)}>
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
