@@ -95,9 +95,9 @@ export function RulesEditor({
       {expanded && (
         <CardContent>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <ScrollArea className="h-[320px] pr-4">
+            <ScrollArea className="h-[240px] pr-4">
               <SortableContext items={rules.map((_, i) => i)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   {rules.map((rule, index) => (
                     <SortableRuleRow
                       key={index}
@@ -113,7 +113,7 @@ export function RulesEditor({
               </SortableContext>
             </ScrollArea>
           </DndContext>
-          <Button variant="outline" size="sm" className="mt-4 w-full" onClick={addRule}>
+          <Button variant="outline" size="sm" className="mt-2 w-full" onClick={addRule}>
             <Plus className="h-4 w-4 mr-2" />
             添加规则
           </Button>
@@ -158,7 +158,7 @@ function SortableRuleRow({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="w-36 h-9 justify-between font-mono text-xs shrink-0"
+            className="w-36 h-8 justify-between font-mono text-xs shrink-0"
           >
             <span className="truncate">{rule.type || "选择类型"}</span>
             <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />
@@ -178,7 +178,7 @@ function SortableRuleRow({
         </DropdownMenuContent>
       </DropdownMenu>
       <Input
-        className="flex-1 font-mono text-xs"
+        className="flex-1 h-8 font-mono text-xs"
         value={rule.value}
         disabled={NO_VALUE_TYPES.has(rule.type)}
         onChange={(e) => onUpdate(index, { value: e.target.value })}
@@ -188,7 +188,7 @@ function SortableRuleRow({
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="w-36 h-9 justify-between font-mono text-xs shrink-0"
+            className="w-36 h-8 justify-between font-mono text-xs shrink-0"
           >
             <span className="truncate">{rule.target || "选择目标"}</span>
             <ChevronDown className="h-3 w-3 opacity-50 shrink-0" />

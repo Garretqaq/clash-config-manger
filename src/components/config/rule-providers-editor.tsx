@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import type { RuleProviderItem } from "@/lib/clash-rule-providers"
 
 const TYPES = ['http', 'file']
@@ -55,14 +54,28 @@ export function RuleProvidersEditor({
           {providers.map((p, index) => {
             const dup = p.name !== '' && (nameCounts.get(p.name) ?? 0) > 1
             return (
-              <div key={index} className="rounded-lg border p-2.5 space-y-1.5">
+              <div key={index} className="rounded-lg border p-2 space-y-1">
                 <div className="flex items-center gap-1.5">
                   <Input
-                    className="flex-1 font-mono text-xs"
+                    className="flex-1 h-8 font-mono text-xs"
                     value={p.name}
                     onChange={(e) => update(index, { name: e.target.value })}
                     placeholder="名称（唯一）"
                   />
+                  <select
+                    className="flex h-8 w-20 rounded-md border border-input bg-transparent px-2 text-xs shrink-0"
+                    value={p.type}
+                    onChange={(e) => update(index, { type: e.target.value })}
+                  >
+                    {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                  <select
+                    className="flex h-8 w-28 rounded-md border border-input bg-transparent px-2 text-xs shrink-0"
+                    value={p.behavior}
+                    onChange={(e) => update(index, { behavior: e.target.value })}
+                  >
+                    {BEHAVIORS.map((b) => <option key={b} value={b}>{b}</option>)}
+                  </select>
                   <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={() => move(index, -1)} disabled={index === 0}>
                     <ArrowUp className="h-3.5 w-3.5" />
                   </Button>
@@ -74,47 +87,16 @@ export function RuleProvidersEditor({
                   </Button>
                 </div>
                 {dup && <p className="text-xs text-destructive">名称重复</p>}
+                <Input
+                  className="h-8 font-mono text-xs"
+                  value={p.url}
+                  disabled={p.type === 'file'}
+                  onChange={(e) => update(index, { url: e.target.value })}
+                  placeholder={p.type === 'file' ? 'file 类型无需 url' : 'https://...'}
+                />
                 <div className="grid grid-cols-2 gap-1.5">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">type</Label>
-                    <select
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs"
-                      value={p.type}
-                      onChange={(e) => update(index, { type: e.target.value })}
-                    >
-                      {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">behavior</Label>
-                    <select
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-2 text-xs"
-                      value={p.behavior}
-                      onChange={(e) => update(index, { behavior: e.target.value })}
-                    >
-                      {BEHAVIORS.map((b) => <option key={b} value={b}>{b}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs text-muted-foreground">url</Label>
-                  <Input
-                    className="font-mono text-xs"
-                    value={p.url}
-                    disabled={p.type === 'file'}
-                    onChange={(e) => update(index, { url: e.target.value })}
-                    placeholder={p.type === 'file' ? 'file 类型无需 url' : 'https://...'}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-1.5">
-                  <div>
-                    <Label className="text-xs text-muted-foreground">path</Label>
-                    <Input className="font-mono text-xs" value={p.path} onChange={(e) => update(index, { path: e.target.value })} placeholder="./ruleset/xx.yaml" />
-                  </div>
-                  <div>
-                    <Label className="text-xs text-muted-foreground">interval</Label>
-                    <Input className="font-mono text-xs" value={p.interval} onChange={(e) => update(index, { interval: e.target.value })} placeholder="86400" />
-                  </div>
+                  <Input className="h-8 font-mono text-xs" value={p.path} onChange={(e) => update(index, { path: e.target.value })} placeholder="path: ./ruleset/xx.yaml" />
+                  <Input className="h-8 font-mono text-xs" value={p.interval} onChange={(e) => update(index, { interval: e.target.value })} placeholder="interval: 86400" />
                 </div>
               </div>
             )
