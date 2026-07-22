@@ -284,6 +284,35 @@ export default function NodesPage() {
     return result
   }
 
+  // YAML 文本 → 完整节点数据：预览展开时以 YAML 为唯一真相源
+  // 相比 parseYamlToForm，直接保留 js-yaml 的原生类型（数字/数组/嵌套对象/多行字符串），
+  // 且 config 完全重建，因此在 YAML 中删掉的字段会真正消失（尊重删除）
+  const parseYamlToNode = (
+    text: string
+  ): { name: string; type: ProxyType; server: string; port: string; config: Record<string, unknown> } | null => {
+    let doc: unknown
+    try {
+      doc = yaml.load(text)
+    } catch {
+      return null
+    }
+    const obj = (Array.isArray(doc) ? doc[0] : doc) as Record<string, unknown> | null
+    if (!obj || typeof obj !== "object") return null
+
+    const coreKeys = new Set(["name", "type", "server", "port"])
+    const config: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(obj)) {
+      if (!coreKeys.has(key) && value != null) config[key] = value
+    }
+    return {
+      name: obj.name != null ? String(obj.name) : "",
+      type: (obj.type != null ? String(obj.type) : "") as ProxyType,
+      server: obj.server != null ? String(obj.server) : "",
+      port: obj.port != null ? String(obj.port) : "",
+      config,
+    }
+  }
+
   // 生成 YAML 预览
   const yamlPreview = useMemo(() => {
     const { name, type, server, port, params } = newNode
@@ -485,8 +514,37 @@ export default function NodesPage() {
   }
 
   const handleAddNode = async () => {
-    const parsed = yamlEditText ? parseYamlToForm(yamlEditText) : {}
-    const formData = { ...newNode, ...parsed, params: { ...newNode.params, ...(parsed.params || {}) } }
+    let formData: { name: string; type: ProxyType; server: string; port: string; groupId: string }
+    let config: Record<string, unknown>
+
+    // 预览展开：YAML 为唯一真相源（保留原生类型），groupId 仍取表单
+    const yamlNode = showPreview && yamlEditText.trim() ? parseYamlToNode(yamlEditText) : null
+    if (yamlNode) {
+      formData = {
+        name: yamlNode.name,
+        type: yamlNode.type || newNode.type,
+        server: yamlNode.server,
+        port: yamlNode.port,
+        groupId: newNode.groupId,
+      }
+      config = yamlNode.config
+    } else {
+      // 表单模式：从表单字段构建配置对象
+      formData = { ...newNode }
+      config = {}
+      Object.entries(newNode.params).forEach(([key, value]) => {
+        if (key.startsWith("__is_object__")) return
+        const strValue = String(value || "")
+        if (!strValue.trim()) return
+        const isMarkedAsObject = newNode.params[`__is_object__${key}`] === "true"
+        if (isMarkedAsObject) {
+          try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
+        } else if (strValue.toLowerCase() === "true") config[key] = true
+        else if (strValue.toLowerCase() === "false") config[key] = false
+        else config[key] = strValue
+      })
+    }
+
     const isTailscale = formData.type === "tailscale"
     if (!formData.name.trim() || (!isTailscale && (!formData.server.trim() || !formData.port.trim()))) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
@@ -498,20 +556,6 @@ export default function NodesPage() {
       showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
       return
     }
-
-    // 构建配置对象
-    const config: Record<string, unknown> = {}
-    Object.entries(formData.params).forEach(([key, value]) => {
-      if (key.startsWith("__is_object__")) return
-      const strValue = String(value || "")
-      if (!strValue.trim()) return
-      const isMarkedAsObject = formData.params[`__is_object__${key}`] === "true"
-      if (isMarkedAsObject) {
-        try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
-      } else if (strValue.toLowerCase() === "true") config[key] = true
-      else if (strValue.toLowerCase() === "false") config[key] = false
-      else config[key] = strValue
-    })
 
     try {
       const res = await fetch("/api/nodes", {
@@ -586,10 +630,61 @@ export default function NodesPage() {
   }
 
   const handleEditNode = async () => {
-    const parsed = editYamlEditText ? parseYamlToForm(editYamlEditText) : {}
-    const formData = { ...editNode, ...parsed, params: { ...editNode.params, ...(parsed.params || {}) } }
+    if (!editingNode) {
+      showToast({ title: "请填写完整信息", variant: "destructive" })
+      return
+    }
+
+    let formData: { name: string; type: ProxyType; server: string; port: string; groupId: string }
+    let cleanConfig: Record<string, unknown>
+
+    // 预览展开：YAML 为唯一真相源（尊重删除、保留原生类型），groupId 仍取表单
+    const yamlNode = showEditPreview && editYamlEditText.trim() ? parseYamlToNode(editYamlEditText) : null
+    if (yamlNode) {
+      formData = {
+        name: yamlNode.name,
+        type: yamlNode.type || editNode.type,
+        server: yamlNode.server,
+        port: yamlNode.port,
+        groupId: editNode.groupId,
+      }
+      cleanConfig = yamlNode.config
+    } else {
+      // 表单模式：从原始 config 出发叠加表单改动
+      formData = { ...editNode }
+      const originalConfig = (editingNode.config as unknown as Record<string, unknown>) || {}
+      const config: Record<string, unknown> = { ...originalConfig }
+
+      Object.entries(editNode.params).forEach(([key, value]) => {
+        const strValue = String(value || "")
+        const originalValue = originalConfig[key]
+        const isOriginalObject = typeof originalValue === 'object' && originalValue !== null && !Array.isArray(originalValue)
+        const isMarkedAsObject = editNode.params[`__is_object__${key}`] === 'true'
+
+        if (!strValue.trim()) {
+          delete config[key]
+          delete config[`__is_object__${key}`]
+        } else if (Array.isArray(originalValue)) {
+          config[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
+        } else if (isOriginalObject || isMarkedAsObject) {
+          try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
+        } else if (strValue.toLowerCase() === "true") {
+          config[key] = true
+        } else if (strValue.toLowerCase() === "false") {
+          config[key] = false
+        } else {
+          config[key] = strValue
+        }
+      })
+
+      cleanConfig = {}
+      Object.entries(config).forEach(([key, value]) => {
+        if (!key.startsWith('__is_object__')) cleanConfig[key] = value
+      })
+    }
+
     const isTailscale = formData.type === "tailscale"
-    if (!editingNode || !formData.name.trim() || (!isTailscale && (!formData.server.trim() || !formData.port.trim()))) {
+    if (!formData.name.trim() || (!isTailscale && (!formData.server.trim() || !formData.port.trim()))) {
       showToast({ title: "请填写完整信息", variant: "destructive" })
       return
     }
@@ -599,36 +694,6 @@ export default function NodesPage() {
       showToast({ title: "端口号无效", description: "请输入 1-65535 之间的端口号", variant: "destructive" })
       return
     }
-
-    const originalConfig = (editingNode.config as unknown as Record<string, unknown>) || {}
-    const config: Record<string, unknown> = { ...originalConfig }
-
-    Object.entries(formData.params).forEach(([key, value]) => {
-      const strValue = String(value || "")
-      const originalValue = originalConfig[key]
-      const isOriginalObject = typeof originalValue === 'object' && originalValue !== null && !Array.isArray(originalValue)
-      const isMarkedAsObject = formData.params[`__is_object__${key}`] === 'true'
-
-      if (!strValue.trim()) {
-        delete config[key]
-        delete config[`__is_object__${key}`]
-      } else if (Array.isArray(originalValue)) {
-        config[key] = strValue.split(',').map(s => s.trim()).filter(s => s)
-      } else if (isOriginalObject || isMarkedAsObject) {
-        try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
-      } else if (strValue.toLowerCase() === "true") {
-        config[key] = true
-      } else if (strValue.toLowerCase() === "false") {
-        config[key] = false
-      } else {
-        config[key] = strValue
-      }
-    })
-
-    const cleanConfig: Record<string, unknown> = {}
-    Object.entries(config).forEach(([key, value]) => {
-      if (!key.startsWith('__is_object__')) cleanConfig[key] = value
-    })
 
     try {
       const res = await fetch("/api/nodes", {
@@ -650,7 +715,7 @@ export default function NodesPage() {
       setNodes((prev) =>
         prev.map((n) =>
           n.id === editingNode.id
-            ? { ...n, name: formData.name, type: formData.type, server: formData.server, port, config, groupId: formData.groupId || null }
+            ? { ...n, name: formData.name, type: formData.type, server: formData.server, port, config: cleanConfig, groupId: formData.groupId || null }
             : n
         )
       )
