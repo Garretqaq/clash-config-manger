@@ -28,6 +28,7 @@ import { showToast } from "@/components/ui/toast"
 import { FolderPlus, Plus, ChevronDown, ChevronRight, Eye, Code, Wifi, Loader2, CheckSquare, Square } from "lucide-react"
 import type { ProxyNode, Group, ProxyType } from "@/lib/types"
 import { cn } from "@/lib/utils"
+import yaml from "js-yaml"
 
 const NODE_TYPES: { value: ProxyType; label: string }[] = [
   { value: "ss", label: "Shadowsocks" },
@@ -233,21 +234,51 @@ export default function NodesPage() {
   }, [nodes])
 
   // 解析 YAML 文本回表单状态
-  const parseYamlToForm = (yaml: string): Partial<NewNodeForm> => {
-    const lines = yaml.split("\n")
+  // 校验 YAML 语法，返回错误信息（含行号），无错返回 null
+  const validateYaml = (text: string): string | null => {
+    if (!text.trim()) return null
+    try {
+      yaml.load(text)
+      return null
+    } catch (e) {
+      const err = e as { message?: string; mark?: { line?: number } }
+      const line = err.mark?.line != null ? `第 ${err.mark.line + 1} 行：` : ""
+      return `${line}YAML 语法错误 - ${err.message || String(e)}`
+    }
+  }
+
+  const parseYamlToForm = (text: string): Partial<NewNodeForm> => {
     const result: Partial<NewNodeForm> = { params: {} }
+    let doc: unknown
+    try {
+      doc = yaml.load(text)
+    } catch {
+      return result // 语法错误时返回空，交由 validateYaml 提示
+    }
+    // 兼容 `- name:` 列表项（取首元素）或直接是 mapping
+    const obj = (Array.isArray(doc) ? doc[0] : doc) as Record<string, unknown> | null
+    if (!obj || typeof obj !== "object") return result
+
     const coreKeys = new Set(["name", "type", "server", "port"])
-    for (const line of lines) {
-      const match = line.match(/^-?\s{0,2}(\S+):\s*(.*)$/)
-      if (!match) continue
-      const [, key, val] = match
-      const v = val.trim().replace(/^"(.*)"$/, "$1")
-      if (key === "name") result.name = v
-      else if (key === "type") result.type = v as ProxyType
-      else if (key === "server") result.server = v
-      else if (key === "port") result.port = v
-      else if (!coreKeys.has(key) && !key.startsWith("-")) {
-        result.params![key] = v
+    for (const [key, value] of Object.entries(obj)) {
+      if (value == null) continue
+      if (key === "name") result.name = String(value)
+      else if (key === "type") result.type = String(value) as ProxyType
+      else if (key === "server") result.server = String(value)
+      else if (key === "port") result.port = String(value)
+      else if (!coreKeys.has(key)) {
+        if (typeof value === "object") {
+          // 数组 / 嵌套对象：序列化并标记，沿用现有约定
+          if (Array.isArray(value)) {
+            result.params![key] = value.join(", ")
+          } else {
+            result.params![key] = JSON.stringify(value)
+            result.params![`__is_object__${key}`] = "true"
+          }
+        } else {
+          // 多行字符串原样保留；布尔/数字转字符串
+          result.params![key] = String(value)
+        }
       }
     }
     return result
@@ -358,6 +389,10 @@ export default function NodesPage() {
   // 表单 → YAML：表单变化时同步 textarea（textarea 聚焦时跳过，避免覆盖用户输入）
   useEffect(() => { if (showPreview && !yamlFocused.current) setYamlEditText(yamlPreview) }, [yamlPreview, showPreview])
   useEffect(() => { if (showEditPreview && !editYamlFocused.current) setEditYamlEditText(editYamlPreview) }, [editYamlPreview, showEditPreview])
+
+  // YAML 语法错误（实时校验，仅在对应预览打开时）
+  const yamlError = useMemo(() => (showPreview ? validateYaml(yamlEditText) : null), [showPreview, yamlEditText])
+  const editYamlError = useMemo(() => (showEditPreview ? validateYaml(editYamlEditText) : null), [showEditPreview, editYamlEditText])
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event
@@ -483,12 +518,15 @@ export default function NodesPage() {
     // 构建配置对象
     const config: Record<string, unknown> = {}
     Object.entries(formData.params).forEach(([key, value]) => {
+      if (key.startsWith("__is_object__")) return
       const strValue = String(value || "")
-      if (strValue.trim()) {
-        if (strValue.toLowerCase() === "true") config[key] = true
-        else if (strValue.toLowerCase() === "false") config[key] = false
-        else config[key] = strValue
-      }
+      if (!strValue.trim()) return
+      const isMarkedAsObject = formData.params[`__is_object__${key}`] === "true"
+      if (isMarkedAsObject) {
+        try { config[key] = JSON.parse(strValue) } catch { config[key] = strValue }
+      } else if (strValue.toLowerCase() === "true") config[key] = true
+      else if (strValue.toLowerCase() === "false") config[key] = false
+      else config[key] = strValue
     })
 
     try {
@@ -1123,6 +1161,9 @@ export default function NodesPage() {
                   spellCheck={false}
                 />
               )}
+              {showPreview && yamlError && (
+                <p className="mt-2 text-xs text-red-400">{yamlError}</p>
+              )}
             </div>
           </div>
 
@@ -1130,7 +1171,7 @@ export default function NodesPage() {
             <Button variant="outline" onClick={() => setIsAddNodeOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleAddNode}>添加</Button>
+            <Button onClick={handleAddNode} disabled={!!yamlError}>添加</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1300,6 +1341,9 @@ export default function NodesPage() {
                   spellCheck={false}
                 />
               )}
+              {showEditPreview && editYamlError && (
+                <p className="mt-2 text-xs text-red-400">{editYamlError}</p>
+              )}
             </div>
           </div>
 
@@ -1307,7 +1351,7 @@ export default function NodesPage() {
             <Button variant="outline" onClick={() => setIsEditNodeOpen(false)}>
               取消
             </Button>
-            <Button onClick={handleEditNode}>保存</Button>
+            <Button onClick={handleEditNode} disabled={!!editYamlError}>保存</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
