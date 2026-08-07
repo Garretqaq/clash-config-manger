@@ -1092,21 +1092,21 @@ export default function NodesPage() {
                 {newNode.type !== "tailscale" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="node-port">端口</Label>
-                      <Input
-                        id="node-port"
-                        placeholder="443"
-                        value={newNode.port}
-                        onChange={(e) => setNewNode((prev) => ({ ...prev, port: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
                       <Label htmlFor="node-server">服务器</Label>
                       <Input
                         id="node-server"
                         placeholder="jp.example.com"
                         value={newNode.server}
                         onChange={(e) => setNewNode((prev) => ({ ...prev, server: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="node-port">端口</Label>
+                      <Input
+                        id="node-port"
+                        placeholder="443"
+                        value={newNode.port}
+                        onChange={(e) => setNewNode((prev) => ({ ...prev, port: e.target.value }))}
                       />
                     </div>
                   </>
@@ -1272,21 +1272,21 @@ export default function NodesPage() {
                 {editNode.type !== "tailscale" && (
                   <>
                     <div className="space-y-2">
-                      <Label htmlFor="edit-node-port">端口</Label>
-                      <Input
-                        id="edit-node-port"
-                        placeholder="443"
-                        value={editNode.port}
-                        onChange={(e) => setEditNode((prev) => ({ ...prev, port: e.target.value }))}
-                      />
-                    </div>
-                    <div className="space-y-2">
                       <Label htmlFor="edit-node-server">服务器</Label>
                       <Input
                         id="edit-node-server"
                         placeholder="jp.example.com"
                         value={editNode.server}
                         onChange={(e) => setEditNode((prev) => ({ ...prev, server: e.target.value }))}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="edit-node-port">端口</Label>
+                      <Input
+                        id="edit-node-port"
+                        placeholder="443"
+                        value={editNode.port}
+                        onChange={(e) => setEditNode((prev) => ({ ...prev, port: e.target.value }))}
                       />
                     </div>
                   </>
