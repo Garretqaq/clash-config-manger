@@ -69,6 +69,9 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=prisma /app/prisma ./prisma
 COPY --from=prisma /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=prisma /app/node_modules/@prisma ./node_modules/@prisma
+# 启动脚本：先按运行期配置同步数据库表结构，再启动应用
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 
 # 切换到 root 用户
 USER root
@@ -79,5 +82,5 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# 启动应用
-CMD ["node", "server.js"]
+# 启动应用（entrypoint 会先执行 prisma db push 同步表结构）
+CMD ["./docker-entrypoint.sh"]
