@@ -15,7 +15,6 @@ export default async function SharePage({ params }: PageProps) {
     select: {
       id: true,
       configName: true,
-      description: true,
       expiresAt: true,
       createdAt: true,
     },

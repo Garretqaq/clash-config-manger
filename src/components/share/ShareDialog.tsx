@@ -44,7 +44,7 @@ export function ShareDialog({ open, onOpenChange, configId, configName, configCo
   const [result, setResult] = useState<ShareResult | null>(null)
   const [copied, setCopied] = useState<{ url: boolean; token: boolean }>({ url: false, token: false })
   const [formData, setFormData] = useState({
-    description: "",
+    title: "",
     expiresIn: "never",
     shareType: "dynamic", // 默认动态分享
   })
@@ -60,7 +60,7 @@ export function ShareDialog({ open, onOpenChange, configId, configName, configCo
           ...(formData.shareType === "dynamic" && configId ? { configId } : {}),
           configName,
           configContent,
-          description: formData.description,
+          title: formData.title,
           expiresIn: formData.expiresIn,
         }),
       })
@@ -90,7 +90,7 @@ export function ShareDialog({ open, onOpenChange, configId, configName, configCo
   const handleClose = () => {
     setResult(null)
     setFormData({
-      description: "",
+      title: "",
       expiresIn: "never",
       shareType: "dynamic",
     })
@@ -132,14 +132,15 @@ export function ShareDialog({ open, onOpenChange, configId, configName, configCo
               </div>
             )}
 
-            {/* Description */}
+            {/* Title */}
             <div className="space-y-2">
-              <Label htmlFor="description">分享描述（可选）</Label>
+              <Label htmlFor="title">标题（可选）</Label>
               <Input
-                id="description"
-                placeholder="例如：香港节点配置"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                id="title"
+                placeholder="例如：给张三的订阅"
+                maxLength={100}
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               />
             </div>
 

@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useEffect, useState, useCallback } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Copy, Check, Download, AlertCircle, Loader2 } from "lucide-react"
@@ -14,7 +14,6 @@ interface ConfigViewerProps {
 
 interface ShareData {
   configName: string
-  description: string | null
   content: string
   expiresAt: string | null
   views: number
@@ -27,11 +26,7 @@ export function ConfigViewer({ shareId, initialConfigName }: ConfigViewerProps) 
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    fetchConfig()
-  }, [shareId])
-
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       const res = await fetch(`/api/share/${shareId}`)
 
@@ -53,7 +48,6 @@ export function ConfigViewer({ shareId, initialConfigName }: ConfigViewerProps) 
       const content = await res.text()
       setData({
         configName: initialConfigName,
-        description: null,
         content,
         expiresAt: null,
         views: 0,
@@ -64,7 +58,11 @@ export function ConfigViewer({ shareId, initialConfigName }: ConfigViewerProps) 
     } finally {
       setLoading(false)
     }
-  }
+  }, [shareId, initialConfigName])
+
+  useEffect(() => {
+    fetchConfig()
+  }, [fetchConfig])
 
   const handleCopy = async () => {
     if (data?.content) {
@@ -123,9 +121,6 @@ export function ConfigViewer({ shareId, initialConfigName }: ConfigViewerProps) 
             <div className="flex items-start justify-between">
               <div>
                 <CardTitle className="text-xl">{data?.configName}</CardTitle>
-                {data?.description && (
-                  <CardDescription>{data.description}</CardDescription>
-                )}
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handleCopy}>

@@ -116,6 +116,7 @@ export interface ShareLink {
   shareId: string
   configId?: string | null
   configName?: string | null
+  title?: string | null
   description?: string | null
   expiresAt?: string | null
   views: number

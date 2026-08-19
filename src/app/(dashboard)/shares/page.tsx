@@ -14,9 +14,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Trash2, Copy, Search, Loader2 } from "lucide-react"
+import { Trash2, Copy, Search, Loader2, Pencil } from "lucide-react"
 import { showToast } from "@/components/ui/toast"
 import { showConfirm } from "@/components/ui/confirm-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import type { ShareLink } from "@/lib/types"
 import { formatDate } from "@/lib/utils"
 
@@ -31,6 +39,9 @@ export default function SharesPage() {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [editingLink, setEditingLink] = useState<ShareLinkWithStatus | null>(null)
+  const [editTitle, setEditTitle] = useState("")
+  const [editSaving, setEditSaving] = useState(false)
 
   const fetchShareLinks = useCallback(async () => {
     try {
@@ -146,6 +157,35 @@ export default function SharesPage() {
     showToast({ title: "已复制到剪贴板", variant: "success" })
   }
 
+  const handleOpenEdit = (link: ShareLinkWithStatus) => {
+    setEditingLink(link)
+    setEditTitle(link.title || "")
+  }
+
+  const handleSaveTitle = async () => {
+    if (!editingLink) return
+    setEditSaving(true)
+    try {
+      const res = await fetch(`/api/share/${editingLink.shareId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: editTitle }),
+      })
+      if (res.ok) {
+        showToast({ title: "标题已更新", variant: "success" })
+        setEditingLink(null)
+        fetchShareLinks()
+      } else {
+        const data = await res.json()
+        showToast({ title: "更新失败", description: data.error, variant: "destructive" })
+      }
+    } catch {
+      showToast({ title: "更新失败", description: "网络错误", variant: "destructive" })
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   const formatExpiryDate = (date: string | null | undefined) => {
     if (!date) return "永久有效"
     return formatDate(date)
@@ -169,7 +209,7 @@ export default function SharesPage() {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="搜索配置名称或描述..."
+                placeholder="搜索标题或配置名称..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
@@ -215,6 +255,7 @@ export default function SharesPage() {
                         onChange={(e) => handleSelectAll(e.target.checked)}
                       />
                     </th>
+                    <th className="p-4 text-left font-medium">标题</th>
                     <th className="p-4 text-left font-medium">配置名称</th>
                     <th className="p-4 text-left font-medium">类型</th>
                     <th className="p-4 text-left font-medium">有效期</th>
@@ -233,7 +274,8 @@ export default function SharesPage() {
                           onChange={(e) => handleSelectOne(link.shareId, e.target.checked)}
                         />
                       </td>
-                      <td className="p-4 font-medium">{link.configName || "-"}</td>
+                      <td className="p-4 font-medium">{link.title || "-"}</td>
+                      <td className="p-4">{link.configName || "-"}</td>
                       <td className="p-4">
                         <Badge variant={link.isDynamic ? "default" : "outline"}>
                           {link.isDynamic ? "动态" : "静态"}
@@ -262,6 +304,14 @@ export default function SharesPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            onClick={() => handleOpenEdit(link)}
+                            title="编辑标题"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             onClick={() => handleDelete(link.shareId)}
                             title="删除"
                           >
@@ -277,6 +327,34 @@ export default function SharesPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Title Dialog */}
+      <Dialog open={!!editingLink} onOpenChange={(open) => !open && setEditingLink(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>编辑标题</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="edit-title">标题（可选）</Label>
+            <Input
+              id="edit-title"
+              placeholder="例如：给张三的订阅"
+              maxLength={100}
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingLink(null)}>
+              取消
+            </Button>
+            <Button onClick={handleSaveTitle} disabled={editSaving}>
+              {editSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              保存
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

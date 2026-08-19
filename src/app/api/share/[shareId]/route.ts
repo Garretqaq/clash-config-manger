@@ -8,6 +8,38 @@ import { parseRuleProviders, serializeRuleProviders } from '@/lib/clash-rule-pro
 // Mark as dynamic route
 export const dynamic = "force-dynamic";
 
+// PATCH /api/share/[shareId] - Update share link title
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ shareId: string }> }
+) {
+  try {
+    const { shareId } = await params
+    const body = await request.json()
+    const { title } = body
+
+    const trimmedTitle = typeof title === 'string' && title.trim() ? title.trim() : null
+
+    const shareLink = await prisma.shareLink.findUnique({
+      where: { shareId },
+    })
+
+    if (!shareLink) {
+      return NextResponse.json({ error: '分享链接不存在' }, { status: 404 })
+    }
+
+    const updated = await prisma.shareLink.update({
+      where: { id: shareLink.id },
+      data: { title: trimmedTitle },
+    })
+
+    return NextResponse.json({ id: updated.id, shareId: updated.shareId, title: updated.title })
+  } catch (error) {
+    console.error('Failed to update share link title:', error)
+    return NextResponse.json({ error: '更新标题失败' }, { status: 500 })
+  }
+}
+
 // GET /api/share/[shareId] - Get share link content (requires token)
 export async function GET(
   request: NextRequest,

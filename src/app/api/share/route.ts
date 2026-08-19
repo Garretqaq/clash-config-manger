@@ -25,11 +25,11 @@ export async function GET(request: NextRequest) {
     // Build where clause
     const where: any = {}
 
-    // Search filter (configName or description)
+    // Search filter (title or configName)
     if (q) {
       where.OR = [
+        { title: { contains: q } },
         { configName: { contains: q } },
-        { description: { contains: q } },
       ]
     }
 
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         accessToken: true,
         configId: true,
         configName: true,
-        description: true,
+        title: true,
         expiresAt: true,
         views: true,
         isDynamic: true,
@@ -91,7 +91,8 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { configId, configName, configContent, description, expiresIn } = body
+    const { configId, configName, configContent, title, expiresIn } = body
+    const trimmedTitle = typeof title === 'string' && title.trim() ? title.trim() : null
 
     // Generate share ID and token
     const shareId = nanoid(12)
@@ -136,7 +137,7 @@ export async function POST(request: NextRequest) {
           configId: config.id,
           configName: config.name,
           configContent: null, // Content will be fetched from Config table
-          description,
+          title: trimmedTitle,
           expiresAt,
           isDynamic: true,
         },
@@ -171,7 +172,7 @@ export async function POST(request: NextRequest) {
         configId: null,
         configName: configName || '未命名配置',
         configContent,
-        description,
+        title: trimmedTitle,
         expiresAt,
         isDynamic: false,
       },

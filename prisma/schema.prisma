@@ -80,6 +80,7 @@ model ShareLink {
   configId      String?
   configName    String?
   configContent String?
+  title         String?
   description   String?
   expiresAt     DateTime?
   views         Int       @default(0)
