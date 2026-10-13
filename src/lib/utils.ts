@@ -1,5 +1,16 @@
 import { type ClassValue, clsx } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { extendTailwindMerge } from "tailwind-merge"
+
+// 自定义主题键必须显式登记给 tailwind-merge，否则它按命名猜分组：
+// bg-check（自定义的 backgroundImage）会被当成背景色，与 checked:bg-primary 同组合并、
+// 丢掉排在前面的那个 —— 表现就是勾选后只剩白勾画在白底上，看着像勾不上。
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'bg-image': ['bg-check'],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
