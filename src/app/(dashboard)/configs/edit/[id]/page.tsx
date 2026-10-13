@@ -55,6 +55,8 @@ import { parseRules, serializeRules, type RuleItem } from "@/lib/clash-rules"
 import { parseRuleProviders, serializeRuleProviders, validateRuleProviders, type RuleProviderItem } from "@/lib/clash-rule-providers"
 import { RulesEditor } from "@/components/config/rules-editor"
 import { RuleProvidersEditor } from "@/components/config/rule-providers-editor"
+import { DnsEditor } from "@/components/config/dns-editor"
+import { parseDns, serializeDns, validateDns, type DnsConfig } from "@/lib/clash-dns"
 import { showToast } from "@/components/ui/toast"
 import type { ProxyNode, Template, Group, Config, NodeMappingValue } from "@/lib/types"
 
@@ -367,6 +369,7 @@ export default function EditConfigPage() {
   const [previewContent, setPreviewContent] = useState("")
   const [rules, setRules] = useState<RuleItem[]>([])
   const [ruleProviders, setRuleProviders] = useState<RuleProviderItem[]>([])
+  const [dns, setDns] = useState<DnsConfig>({})
   const [activeNode, setActiveNode] = useState<ProxyNode | null>(null)
 
   const [isSaveOpen, setIsSaveOpen] = useState(false)
@@ -410,6 +413,7 @@ export default function EditConfigPage() {
       setConfigData(config)
       setRules(parseRules(config.content))
       setRuleProviders(parseRuleProviders(config.content))
+      setDns(parseDns(config.content))
       setConfigName(config.name)
 
       // 获取所有节点（不过滤）
@@ -520,10 +524,11 @@ export default function EditConfigPage() {
       removeUnusedGroups: true,
       rules: serializeRules(rules),
       ruleProviders: serializeRuleProviders(ruleProviders),
+      dns: serializeDns(dns),
     })
 
     setPreviewContent(preview)
-  }, [nodeMapping, selectedTemplate, configData, rules, ruleProviders])
+  }, [nodeMapping, selectedTemplate, configData, rules, ruleProviders, dns])
 
   const extractGroupNames = (content: string): string[] => {
     const groups: string[] = []
@@ -791,6 +796,13 @@ export default function EditConfigPage() {
       return
     }
 
+    // 校验 dns
+    const dnsValidation = validateDns(dns)
+    if (!dnsValidation.ok) {
+      showToast({ title: "DNS 配置校验失败", description: dnsValidation.errors[0], variant: "destructive" })
+      return
+    }
+
     // 转换为保存格式:NodeMappingItem[]
     const nodeMappingIds: Record<string, Array<string | { type: 'group'; name: string }>> = {}
     for (const [groupName, items] of Object.entries(nodeMapping)) {
@@ -817,6 +829,7 @@ export default function EditConfigPage() {
           nodeMapping: nodeMappingIds,
           rules: serializeRules(rules),
           ruleProviders: serializeRuleProviders(ruleProviders),
+          dns: serializeDns(dns),
         }),
       })
       const result = await res.json()
@@ -1028,6 +1041,9 @@ export default function EditConfigPage() {
 
           {/* 规则集（rule-providers） */}
           <RuleProvidersEditor providers={ruleProviders} onChange={setRuleProviders} />
+
+          {/* DNS 配置 */}
+          <DnsEditor dns={dns} onChange={setDns} />
 
           {/* 配置预览 */}
           <Card>

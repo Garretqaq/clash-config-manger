@@ -4,6 +4,7 @@ import { publicLimiter } from '@/lib/rate-limit'
 import { ClashGenerator } from '@/lib/clash-generator'
 import { parseRules, serializeRules } from '@/lib/clash-rules'
 import { parseRuleProviders, serializeRuleProviders } from '@/lib/clash-rule-providers'
+import { parseDns, serializeDns } from '@/lib/clash-dns'
 
 // Mark as dynamic route
 export const dynamic = "force-dynamic";
@@ -188,6 +189,8 @@ export async function GET(
       // 否则生成器会回退到模板默认 rules，导致分享内容落后于用户编辑
       const rules = serializeRules(parseRules(config.content))
       const ruleProviders = serializeRuleProviders(parseRuleProviders(config.content))
+      // dns 同样从已保存的 content 解析，否则分享会回退到模板 dns，落后于用户在编辑页的修改
+      const dns = serializeDns(parseDns(config.content))
 
       configContent = ClashGenerator.generate({
         template: template.content,
@@ -196,6 +199,7 @@ export async function GET(
         removeUnusedGroups: true,
         rules,
         ruleProviders,
+        dns,
       })
     } else {
       // Use stored content

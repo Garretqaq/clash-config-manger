@@ -8,6 +8,7 @@ interface GenerateOptions {
   removeUnusedGroups?: boolean // 是否移除不在 nodeMapping 中的分组
   rules?: string[] // 覆盖模板 rules；未传则维持模板原样
   ruleProviders?: Record<string, object> // 覆盖模板 rule-providers；未传则维持原样（前端已 serializeRuleProviders）
+  dns?: Record<string, unknown> // 覆盖模板 dns；空对象 = 删除已有 dns 段（源无该段则不注入）
 }
 
 export class ClashGenerator {
@@ -15,7 +16,7 @@ export class ClashGenerator {
    * 生成完整的 Clash 配置
    */
   static generate(options: GenerateOptions): string {
-    const { template, proxies, nodeMapping, removeUnusedGroups = false, rules, ruleProviders } = options
+    const { template, proxies, nodeMapping, removeUnusedGroups = false, rules, ruleProviders, dns } = options
 
     // 解析模板
     const config = yaml.load(template) as ClashConfig
@@ -37,6 +38,17 @@ export class ClashGenerator {
       // （避免向无 rule-providers 的模板注入 rule-providers: {}）
       if (Object.keys(ruleProviders).length > 0 || config['rule-providers'] !== undefined) {
         config['rule-providers'] = ruleProviders
+      }
+    }
+
+    // 覆盖 dns（若调用方提供）
+    if (dns) {
+      // 非空对象总是覆盖；空对象仅在源已有 dns 段时生效（删除该段），
+      // 避免向无 dns 的模板注入 dns: {}
+      if (Object.keys(dns).length > 0) {
+        config.dns = dns
+      } else if (config.dns !== undefined) {
+        delete config.dns
       }
     }
 

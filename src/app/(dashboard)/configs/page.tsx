@@ -31,6 +31,8 @@ import { parseRules, serializeRules, type RuleItem } from "@/lib/clash-rules"
 import { parseRuleProviders, serializeRuleProviders, validateRuleProviders, type RuleProviderItem } from "@/lib/clash-rule-providers"
 import { RulesEditor } from "@/components/config/rules-editor"
 import { RuleProvidersEditor } from "@/components/config/rule-providers-editor"
+import { DnsEditor } from "@/components/config/dns-editor"
+import { parseDns, serializeDns, validateDns, type DnsConfig } from "@/lib/clash-dns"
 import { showToast } from "@/components/ui/toast"
 import type { ProxyNode, Template, Group, NodeMappingValue } from "@/lib/types"
 
@@ -68,6 +70,7 @@ export default function ConfigsPage() {
   const [nodePoolWidth, setNodePoolWidth] = useState(320)
   const [rules, setRules] = useState<RuleItem[]>([])
   const [ruleProviders, setRuleProviders] = useState<RuleProviderItem[]>([])
+  const [dns, setDns] = useState<DnsConfig>({})
 
   const ruleTargets = useMemo(
     () => ['DIRECT', 'REJECT', 'REJECT-DROP', 'PASS', ...Object.keys(nodeMapping)],
@@ -87,6 +90,7 @@ export default function ConfigsPage() {
     // 解析模板中的 rules 和 rule-providers，实现"继承后编辑"而非"清空后重建"
     setRules(parseRules(template.content))
     setRuleProviders(parseRuleProviders(template.content))
+    setDns(parseDns(template.content))
   }, [])
 
   const fetchData = useCallback(async () => {
@@ -147,10 +151,11 @@ export default function ConfigsPage() {
       removeUnusedGroups: true,
       rules: serializeRules(rules),
       ruleProviders: serializeRuleProviders(ruleProviders),
+      dns: serializeDns(dns),
     })
 
     setPreviewContent(preview)
-  }, [nodeMapping, selectedTemplate, rules, ruleProviders])
+  }, [nodeMapping, selectedTemplate, rules, ruleProviders, dns])
 
   const handleDragStart = (event: DragStartEvent) => {
     const data = event.active.data.current as { node?: ProxyNode }
@@ -218,6 +223,12 @@ export default function ConfigsPage() {
       showToast({ title: "规则集校验失败", description: rpValidation.errors[0], variant: "destructive" })
       return
     }
+    // 校验 dns
+    const dnsValidation = validateDns(dns)
+    if (!dnsValidation.ok) {
+      showToast({ title: "DNS 配置校验失败", description: dnsValidation.errors[0], variant: "destructive" })
+      return
+    }
 
     // 转换为保存格式: NodeMappingValue[] -> NodeMappingItem[]
     const nodeMappingIds = convertToSaveFormat(nodeMapping)
@@ -232,6 +243,7 @@ export default function ConfigsPage() {
           nodeMapping: nodeMappingIds,
           rules: serializeRules(rules),
           ruleProviders: serializeRuleProviders(ruleProviders),
+          dns: serializeDns(dns),
         }),
       })
       const config = await res.json()
@@ -398,6 +410,7 @@ export default function ConfigsPage() {
             <div className="space-y-4">
               <RulesEditor rules={rules} onChange={setRules} ruleTargets={ruleTargets} />
               <RuleProvidersEditor providers={ruleProviders} onChange={setRuleProviders} />
+              <DnsEditor dns={dns} onChange={setDns} />
             </div>
           )}
 

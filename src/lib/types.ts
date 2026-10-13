@@ -108,6 +108,7 @@ export interface ClashConfig {
   'proxy-groups'?: ClashProxyGroup[]
   rules?: string[]
   'rule-providers'?: Record<string, unknown>
+  dns?: Record<string, unknown>
   [key: string]: unknown
 }
 
