@@ -67,6 +67,10 @@ const config: Config = {
           '50%': { backgroundPosition: '100% 50%' },
         },
       },
+      backgroundImage: {
+        // 自绘勾号（Checkbox 用 checked:bg-check 引用，替代 macOS/Windows 原生渲染）
+        check: 'url("data:image/svg+xml,%3Csvg%20xmlns=\'http://www.w3.org/2000/svg\'%20viewBox=\'0%200%2024%2024\'%20fill=\'none\'%20stroke=\'white\'%20stroke-width=\'4\'%20stroke-linecap=\'round\'%20stroke-linejoin=\'round\'%3E%3Cpath%20d=\'M20%206%209%2017l-5-5\'/%3E%3C/svg%3E")',
+      },
       backgroundSize: {
         '200': '200% 200%',
       },
