@@ -1,16 +1,19 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useSyncExternalStore } from "react"
 import { Moon, Sun, Monitor } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useTheme } from "@/hooks/use-theme"
 
+// 挂载检测：服务端与首帧返回 false，避免水合不一致，且无需在 effect 里 setState
+const emptySubscribe = () => () => {}
+const getClientSnapshot = () => true
+const getServerSnapshot = () => false
+
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
+  const mounted = useSyncExternalStore(emptySubscribe, getClientSnapshot, getServerSnapshot)
   useEffect(() => {
-    setMounted(true)
     // 初始化时应用主题
     const root = document.documentElement
     const stored = localStorage.getItem("theme-storage")

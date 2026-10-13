@@ -25,8 +25,6 @@ function ConfirmDialogInner({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  if (!open) return null
-
   // ESC key to close
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -35,6 +33,9 @@ function ConfirmDialogInner({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [onCancel])
+
+  // 关闭时不渲染：early return 必须在所有 Hook 之后，否则 Hook 调用顺序会在开关之间变化
+  if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
